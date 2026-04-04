@@ -735,25 +735,32 @@ function fillFromApi(p, regNum, statusEl) {
 
   // Contract/winner price → offer field
   let contractPrice = 0;
+  let priceSource = '';
   // 1. From contracts
   if (p.Контракты && typeof p.Контракты === 'object') {
     const ckeys = Object.keys(p.Контракты);
     if (ckeys.length > 0 && p.Контракты[ckeys[0]].Цена) {
       contractPrice = p.Контракты[ckeys[0]].Цена.Сумма;
+      priceSource = 'контракт';
     }
   }
-  // 2. From protocol (winner's bid)
-  if (!contractPrice && p.Протокол && p.Протокол.Заявки) {
-    const winner = p.Протокол.Заявки.find(z => z.Результат === 'Победитель');
-    if (winner && winner.Сумма) contractPrice = winner.Сумма;
-    // Or just first bid if no winner marked
-    if (!contractPrice && p.Протокол.Заявки.length > 0 && p.Протокол.Заявки[0].Сумма) {
-      contractPrice = p.Протокол.Заявки[0].Сумма;
+  // 2. From protocol — only admitted bids (exclude rejected)
+  if (!contractPrice && p.Протокол && Array.isArray(p.Протокол.Заявки)) {
+    const rejected = /отклон|отказ|не\s*допущ/i;
+    const admitted = p.Протокол.Заявки.filter(z => !rejected.test(z.Результат || '') && !rejected.test(z.Причина || ''));
+    // Winner first
+    const winner = admitted.find(z => z.Результат === 'Победитель');
+    if (winner && winner.Сумма) {
+      contractPrice = winner.Сумма;
+      priceSource = 'победитель';
+    } else if (admitted.length > 0 && admitted[0].Сумма) {
+      contractPrice = admitted[0].Сумма;
+      priceSource = 'допущенная заявка';
     }
   }
   if (contractPrice > 0) {
     document.getElementById('offerPrice').value = Math.round(contractPrice).toLocaleString('ru-RU');
-    filled.push(`Цена контракта: ${fmt(contractPrice)}`);
+    filled.push(`Цена (${priceSource}): ${fmt(contractPrice)}`);
   }
 
   // Guarantee
