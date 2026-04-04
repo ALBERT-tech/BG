@@ -1149,14 +1149,15 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
   if (isSmp && hasContracts) {
     steps.push({
       title: 'Освобождение для СМП (ч. 8.1 ст. 96)',
-      value: `Есть 3+ исполненных контракта. Можно не вносить ОИК (предоставить справку вместо обеспечения).`,
+      value: `Есть 3+ исполненных контракта. ОИК не требуется — предоставьте справку об исполненных контрактах.`,
       cls: 'success'
     });
     steps.push({
-      title: 'Если решите внести обеспечение',
-      value: `Размер составит: ${fmt(oik)}`,
+      title: 'Справочно: если решите внести обеспечение',
+      value: `Размер составил бы: ${fmt(oik)}`,
       cls: ''
     });
+    oik = 0;
   } else if (isSmp && !hasContracts) {
     steps.push({
       title: 'СМП без освобождения',
