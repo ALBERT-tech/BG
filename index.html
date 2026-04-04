@@ -1031,10 +1031,10 @@ function downloadReport() {
   if (r.antidumping) {
     txt += '\n  ⚠️ ВНИМАНИЕ: ПРИМЕНЯЮТСЯ АНТИДЕМПИНГОВЫЕ МЕРЫ (ст. 37 44-ФЗ)\n';
     txt += `  Снижение цены: ${r.reductionPct.toFixed(1)}% (порог: 25%)\n`;
-    const threshold = r.nmck * 0.75;
-    txt += `  Пороговая цена без антидемпинга: ${fmt(threshold)}\n`;
-    if (r.nmck > 15_000_000) {
-      txt += '  НМЦК > 15 млн: требуется подтверждение добросовестности\n';
+    if (r.hasContracts && r.nmck <= 15_000_000) {
+      txt += '  Есть 3+ контракта, НМЦК <= 15 млн — подтверждение добросовестности, ОИК не увеличен.\n';
+    } else if (r.nmck > 15_000_000) {
+      txt += '  НМЦК > 15 млн — увеличенное обеспечение x1.5 обязательно.\n';
     }
     txt += '\n';
   }
@@ -1179,9 +1179,7 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
   } else if (hasOffer && reductionPct > 0) {
     steps.push({
       title: `Снижение цены: ${reductionPct.toFixed(1)}%`,
-      value: reductionPct >= 20
-        ? `Антидемпинг не применяется (порог 25%). Осталось: ${(25 - reductionPct).toFixed(1)}%`
-        : 'Антидемпинговые меры не применяются',
+      value: 'Антидемпинговые меры не применяются (порог 25%)',
       cls: ''
     });
   }
@@ -1239,23 +1237,17 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
     });
   }
 
-  // Step 6: Comparison SMP vs non-SMP (informational)
-  if (isSmp && hasOffer && offer < nmck) {
+  // Step 6: SMP savings (informational)
+  if (isSmp && hasOffer && offer < nmck && !hasContracts) {
     const oikFromNmck = nmck * oikPct / 100;
     const savings = oikFromNmck - (calcBase * oikPct / 100);
     if (savings > 0) {
       steps.push({
-        title: 'Экономия СМП на базе расчёта',
-        value: `Если бы от НМЦК: ${fmt(oikFromNmck)}. От цены контракта: ${fmt(calcBase * oikPct / 100)}. Экономия: ${fmt(savings)}`,
+        title: 'Экономия СМП',
+        value: `ОИК от НМЦК: ${fmt(oikFromNmck)}. От цены контракта: ${fmt(calcBase * oikPct / 100)}. Экономия: ${fmt(savings)}`,
         cls: 'success'
       });
     }
-  } else if (!isSmp && hasOffer && offer < nmck) {
-    steps.push({
-      title: 'Справочно: расчёт от цены предложения',
-      value: `${fmt(offer)} &times; ${fmtPct(oikPct)} = ${fmt(offer * oikPct / 100)} (не применяется — вы не СМП, ОИК от НМЦК)`,
-      cls: ''
-    });
   }
 
   steps.push({
@@ -1334,39 +1326,27 @@ function calc223(nmck, oikPct, advPct, offer, isSmp, steps) {
 
 
 function buildAntidumpingContent(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, finalOik) {
-  const baseOik = nmck * oikPct / 100;
-  const increasedOik = baseOik * 1.5;
-
   let html = '<div style="font-size:14px; line-height:1.7;">';
 
   html += `<p><strong>Снижение цены:</strong> ${reductionPct.toFixed(1)}% (порог: 25%)</p>`;
-  html += `<p><strong>Ваше предложение:</strong> ${fmt(offer)} при НМЦК ${fmt(nmck)}</p>`;
+  html += `<p><strong>Ваше предложение:</strong> ${fmt(offer)}</p>`;
   html += '<hr style="border-color:var(--border); margin:12px 0;">';
 
-  html += '<p><strong>Что это значит для вас:</strong></p>';
-  html += '<ul style="padding-left:20px; margin:8px 0;">';
-  html += `<li>Базовый ОИК ${fmt(baseOik)} увеличивается в <strong>1,5 раза</strong> до ${fmt(increasedOik)}</li>`;
-
-  if (nmck > 15_000_000) {
-    html += '<li style="color:var(--orange)">НМЦК > 15 млн: необходимо подтверждение добросовестности '
-      + '(3 контракта за 3 года без пени и штрафов, сумма >= НМЦК) <strong>ИЛИ</strong> увеличенное обеспечение</li>';
+  if (hasContracts && nmck <= 15_000_000) {
+    html += '<p style="color:var(--green)"><strong>Подтверждение добросовестности:</strong> есть 3+ контракта, НМЦК &le; 15 млн — ОИК не увеличивается.</p>';
+  } else if (hasContracts && nmck > 15_000_000) {
+    html += '<p style="color:var(--orange)"><strong>НМЦК > 15 млн:</strong> 3 контракта не освобождают от увеличенного обеспечения. ОИК увеличен в 1,5 раза.</p>';
+  } else if (nmck <= 15_000_000) {
+    html += '<p>НМЦК &le; 15 млн. Можно предоставить 3 исполненных контракта вместо увеличенного обеспечения.</p>';
   } else {
-    html += '<li>НМЦК <= 15 млн: достаточно увеличенного обеспечения, подтверждение добросовестности не требуется</li>';
+    html += '<p style="color:var(--orange)">НМЦК > 15 млн. Увеличенное обеспечение x1.5 обязательно.</p>';
   }
 
   if (isSmp && hasContracts) {
-    html += '<li style="color:var(--green)">Как СМП с 3+ контрактами, вы можете предоставить справку об исполненных контрактах вместо увеличенного обеспечения</li>';
+    html += '<p style="color:var(--green)">СМП с 3+ контрактами — ОИК не требуется.</p>';
   }
 
-  html += '</ul>';
-
-  // Threshold price
-  const thresholdPrice = nmck * 0.75;
-  html += `<div class="info-block" style="margin-top:12px;">`;
-  html += `<strong>Пороговая цена без антидемпинга:</strong> ${fmt(thresholdPrice)} (75% от НМЦК)<br>`;
-  html += `Если предложите цену выше ${fmt(thresholdPrice)}, антидемпинг не сработает.`;
-  html += '</div>';
-
+  html += `<p><strong>Итоговый ОИК:</strong> ${fmt(finalOik)}</p>`;
   html += '</div>';
   return html;
 }
