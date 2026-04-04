@@ -727,37 +727,11 @@ function fillFromApi(p, regNum, statusEl) {
     filled.push(`Аванс: ${p.АвансПроцент}%`);
   }
 
-  // SMP — check multiple sources
-  const smpField = p.СМПиСОНО;
-  const smpFromField = smpField === true || smpField === 'Да' || smpField === '1' || smpField === 1;
-
-  // Also check Условия/Ограничения for SMP keywords
-  let smpFromConditions = false;
-  if (Array.isArray(p.Условия)) {
-    smpFromConditions = p.Условия.some(u =>
-      (u.Описание || u.описание || JSON.stringify(u)).toLowerCase().match(/малого|смп|сонo|мсп/)
-    );
-  } else if (p.Условия && typeof p.Условия === 'object') {
-    const condStr = JSON.stringify(p.Условия).toLowerCase();
-    smpFromConditions = /малого|смп|сонo|мсп/.test(condStr);
-  }
-
-  // Check ИКЗ — 30th digit: 2 or 3 = SMP
-  let smpFromIkz = false;
-  if (Array.isArray(p.ИКЗ) && p.ИКЗ[0] && p.ИКЗ[0].length >= 30) {
-    const digit30 = p.ИКЗ[0][29];
-    smpFromIkz = (digit30 === '2' || digit30 === '3');
-  }
-
-  const isSmp = smpFromField || smpFromConditions || smpFromIkz;
-  if (isSmp) {
-    document.getElementById('isSmp').checked = true;
-    toggleSmpOptions();
-    filled.push('СМП');
-  } else {
-    document.getElementById('isSmp').checked = false;
-    toggleSmpOptions();
-  }
+  // SMP — only trust explicit СМПиСОНО field from DaMIA
+  const smp = p.СМПиСОНО === true || p.СМПиСОНО === 'Да' || p.СМПиСОНО === '1' || p.СМПиСОНО === 1;
+  document.getElementById('isSmp').checked = smp;
+  toggleSmpOptions();
+  if (smp) filled.push('СМП');
 
   // Guarantee
   if (currentLaw === 44 && p.ОбеспГарант && p.ОбеспГарант.Доля > 0) {
