@@ -413,6 +413,15 @@
     </div>
   </div>
   <div id="reductionInfo" style="font-size:13px; margin-top:8px; color:var(--text3);"></div>
+
+  <div class="field" id="unitPriceField" style="display:none; margin-top:16px;">
+    <label>Сумма позиций <span class="hint">(НМЦК единицы — для расчёта антидемпинга)</span></label>
+    <div class="input-wrap">
+      <input type="text" id="unitPriceSum" placeholder="Сумма цен за единицу" oninput="formatMoney(this); autoCalc()">
+      <span class="suffix">&nbsp;</span>
+    </div>
+    <div style="font-size:12px; color:var(--text3); margin-top:4px;">Антидемпинг рассчитывается от суммы позиций, а не от НМЦК</div>
+  </div>
 </div>
 
 <!-- STEP 4: Additional conditions -->
@@ -575,18 +584,29 @@ function fmtPct(n) {
 }
 
 function autoCalc() {
-  // Update reduction info
   const nmck = parseMoney(document.getElementById('nmck').value);
   const offer = parseMoney(document.getElementById('offerPrice').value);
+  const isUV = document.getElementById('isUndefinedVolume').checked;
+  const unitSum = parseMoney(document.getElementById('unitPriceSum').value);
   const el = document.getElementById('reductionInfo');
-  if (nmck > 0 && offer > 0) {
-    const reduction = ((nmck - offer) / nmck * 100);
-    if (reduction >= 25) {
-      el.innerHTML = `<span style="color:var(--orange)">&#9888; Снижение: ${reduction.toFixed(1)}% &mdash; сработает антидемпинг!</span>`;
+
+  // Show/hide unit price field
+  document.getElementById('unitPriceField').style.display = isUV ? 'block' : 'none';
+
+  // Antidumping base: unit sum for undefined volume, NMCK otherwise
+  const adBase = (isUV && unitSum > 0) ? unitSum : nmck;
+  const adLabel = (isUV && unitSum > 0) ? 'суммы позиций' : 'НМЦК';
+
+  if (adBase > 0 && offer > 0) {
+    const reduction = ((adBase - offer) / adBase * 100);
+    if (isUV && unitSum <= 0) {
+      el.innerHTML = '<span style="color:var(--text3)">Укажите сумму позиций для расчёта антидемпинга</span>';
+    } else if (reduction >= 25) {
+      el.innerHTML = `<span style="color:var(--orange)">&#9888; Снижение от ${adLabel}: ${reduction.toFixed(1)}% &mdash; сработает антидемпинг!</span>`;
     } else if (reduction >= 20) {
-      el.innerHTML = `<span style="color:var(--text2)">Снижение: ${reduction.toFixed(1)}% (до антидемпинга осталось ${(25 - reduction).toFixed(1)}%)</span>`;
+      el.innerHTML = `<span style="color:var(--text2)">Снижение от ${adLabel}: ${reduction.toFixed(1)}% (до антидемпинга осталось ${(25 - reduction).toFixed(1)}%)</span>`;
     } else if (reduction > 0) {
-      el.innerHTML = `<span style="color:var(--text3)">Снижение: ${reduction.toFixed(1)}%</span>`;
+      el.innerHTML = `<span style="color:var(--text3)">Снижение от ${adLabel}: ${reduction.toFixed(1)}%</span>`;
     } else {
       el.innerHTML = '';
     }
@@ -771,13 +791,29 @@ function fillFromApi(p, regNum, statusEl) {
     filled.push(`Гарантия: ${guarPct}%`);
   }
 
-  // Auto-detect undefined volume
+  // Auto-detect undefined volume + fill unit price sum
   const nmckVal = (p.НачЦена && p.НачЦена.Сумма) ? p.НачЦена.Сумма : 0;
+  let isUV = false;
   if (nmckVal > 0 && p.Протокол && Array.isArray(p.Протокол.Заявки) && p.Протокол.Заявки.length > 0) {
-    const minBid = Math.min(...p.Протокол.Заявки.filter(z => z.Сумма > 0).map(z => z.Сумма));
-    if (minBid > 0 && minBid < nmckVal * 0.05) {
-      document.getElementById('isUndefinedVolume').checked = true;
-      filled.push('Неопр. объём (авто)');
+    const bidsWithPrice = p.Протокол.Заявки.filter(z => z.Сумма > 0);
+    if (bidsWithPrice.length > 0) {
+      const minBid = Math.min(...bidsWithPrice.map(z => z.Сумма));
+      if (minBid < nmckVal * 0.05) {
+        isUV = true;
+        document.getElementById('isUndefinedVolume').checked = true;
+        document.getElementById('unitPriceField').style.display = 'block';
+        filled.push('Неопр. объём (авто)');
+      }
+    }
+  }
+  // Fill unit price sum from ОбъектыЗак
+  if (p.Продукт && Array.isArray(p.Продукт.ОбъектыЗак) && p.Продукт.ОбъектыЗак.length > 0) {
+    const unitTotal = p.Продукт.ОбъектыЗак.reduce((sum, obj) => {
+      return sum + (obj.ЦенаЕд || 0);
+    }, 0);
+    if (unitTotal > 0) {
+      document.getElementById('unitPriceSum').value = Math.round(unitTotal).toLocaleString('ru-RU');
+      filled.push(`Сумма позиций: ${fmt(unitTotal)}`);
     }
   }
 
@@ -820,15 +856,19 @@ function calculate() {
   let antidumpingContent = '';
   let reductionPct = 0;
 
-  if (offer > 0) {
-    reductionPct = (nmck - offer) / nmck * 100;
+  // For undefined volume: compare against unit price sum, not NMCK
+  const unitSum = parseMoney(document.getElementById('unitPriceSum').value);
+  const adBase = (isUndefinedVolume && unitSum > 0) ? unitSum : nmck;
+
+  if (offer > 0 && adBase > 0) {
+    reductionPct = (adBase - offer) / adBase * 100;
   }
 
   if (currentLaw === 44) {
     finalOik = calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, hasTreasury, isUndefinedVolume, steps);
 
-    // Antidumping check
-    if (reductionPct >= 25) {
+    // Antidumping check (skip for undefined volume without unit sum)
+    if (reductionPct >= 25 && !(isUndefinedVolume && unitSum <= 0)) {
       antidumping = true;
       antidumpingContent = buildAntidumpingContent(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, finalOik);
     }
@@ -1075,14 +1115,15 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
   const advBaseLabel = hasOffer ? 'цены контракта' : 'НМЦК (цена не указана)';
   const advAmount = advPct > 0 ? advBase * advPct / 100 : 0;
 
-  if (isUndefinedVolume && hasOffer && reductionPct >= 25) {
-    // Undefined volume — skip antidumping
+  if (isUndefinedVolume) {
     steps.push({
       title: 'Закупка с неопределённым объёмом',
-      value: `Торги за цену единицы. Снижение ${reductionPct.toFixed(1)}% от НМЦК не является демпингом &mdash; антидемпинговые меры не применяются.`,
+      value: 'Антидемпинг рассчитывается от суммы позиций (НМЦК единицы), а не от НМЦК контракта.',
       cls: 'highlight'
     });
-  } else if (reductionPct >= 25 && hasOffer && !isUndefinedVolume) {
+  }
+
+  if (reductionPct >= 25 && hasOffer) {
     const oikBeforeAD = oik;
     const increased = oik * 1.5;
     const minOikAD = nmck * 0.1;
