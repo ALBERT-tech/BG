@@ -661,36 +661,44 @@ async function fetchPurchase() {
   try {
     const damiaUrl = `https://api.damia.ru/zakupki/zakupka?regn=${encodeURIComponent(num)}&actual=1&key=${encodeURIComponent(key)}`;
 
-    // CORS proxies (fallback chain)
+    // CORS proxies — direct call blocked, go through proxy
     const proxies = [
-      url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-      url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      `https://corsproxy.io/?${encodeURIComponent(damiaUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(damiaUrl)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(damiaUrl)}`,
     ];
 
     let resp = null;
+    let data = null;
     let lastErr = null;
 
-    // Try direct first, then proxies
-    const attempts = [url => url, ...proxies];
-    for (const wrap of attempts) {
+    for (const proxyUrl of proxies) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
       try {
-        resp = await fetch(wrap(damiaUrl), { signal: AbortSignal.timeout(10000) });
-        if (resp.ok) break;
+        resp = await fetch(proxyUrl, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (resp.ok) {
+          const text = await resp.text();
+          try { data = JSON.parse(text); } catch(e) {
+            // allorigins may wrap in JSON object
+            try { data = JSON.parse(JSON.parse(text).contents); } catch(e2) { data = null; }
+          }
+          if (data) break;
+        }
         resp = null;
       } catch(e) {
+        clearTimeout(timer);
         lastErr = e;
         resp = null;
       }
     }
 
-    if (!resp || !resp.ok) {
-      if (resp && resp.status === 403) throw new Error('Неверный API-ключ');
-      if (resp && resp.status === 404) throw new Error('Закупка не найдена');
-      if (resp && resp.status === 429) throw new Error('Превышен лимит запросов');
-      throw new Error(lastErr?.message || `Ошибка загрузки`);
+    if (!data) {
+      throw new Error(lastErr?.message?.includes('abort')
+        ? 'Таймаут — сервер не ответил'
+        : 'Не удалось загрузить данные. Проверьте номер и API-ключ.');
     }
-
-    const data = await resp.json();
 
     // Response key is the regNumber
     const purchase = data[num] || data[Object.keys(data)[0]];
