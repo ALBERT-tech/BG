@@ -661,7 +661,8 @@ async function fetchPurchase() {
   try {
     const damiaUrl = `https://api.damia.ru/zakupki/zakupka?regn=${encodeURIComponent(num)}&actual=1&key=${encodeURIComponent(key)}`;
 
-    const resp = await fetch(damiaUrl);
+    const proxyUrl = `https://damia-proxy.300tender.workers.dev/?regn=${encodeURIComponent(num)}&key=${encodeURIComponent(key)}`;
+    const resp = await fetch(proxyUrl);
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
