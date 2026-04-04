@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Калькулятор ОИК | 44-ФЗ и 223-ФЗ</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232736;
+    --border: #2e3348;
+    --accent: #6c5ce7;
+    --accent-light: #a29bfe;
+    --green: #00b894;
+    --green-bg: rgba(0,184,148,0.1);
+    --orange: #fdcb6e;
+    --orange-bg: rgba(253,203,110,0.1);
+    --red: #ff7675;
+    --red-bg: rgba(255,118,117,0.1);
+    --text: #e8e8f0;
+    --text2: #9a9cb8;
+    --text3: #6b6d85;
+    --radius: 12px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 16px 80px;
+  }
+  header {
+    text-align: center;
+    padding: 32px 0 24px;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--accent-light), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header p { color: var(--text2); font-size: 15px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .num {
+    background: var(--accent);
+    color: #fff;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* Law selector */
+  .law-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .law-btn {
+    flex: 1;
+    padding: 14px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface2);
+    color: var(--text2);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .law-btn:hover { border-color: var(--accent); color: var(--text); }
+  .law-btn.active {
+    border-color: var(--accent);
+    background: rgba(108,92,231,0.15);
+    color: var(--accent-light);
+  }
+  .law-btn small {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    margin-top: 4px;
+    opacity: 0.7;
+  }
+
+  /* Inputs */
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .field label .hint {
+    color: var(--text3);
+    font-weight: 400;
+  }
+  .input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .input-wrap .suffix {
+    position: absolute;
+    right: 14px;
+    color: var(--text3);
+    font-size: 14px;
+    pointer-events: none;
+  }
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 12px 14px;
+    padding-right: 40px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--text3); }
+
+  .row { display: flex; gap: 12px; }
+  .row .field { flex: 1; }
+
+  /* Checkbox / toggle */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 14px; }
+  .toggle-label small { display: block; color: var(--text3); font-size: 12px; margin-top: 2px; }
+  .toggle {
+    position: relative;
+    width: 44px; height: 24px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle .slider {
+    position: absolute; inset: 0;
+    background: var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .toggle .slider::before {
+    content: '';
+    position: absolute;
+    width: 18px; height: 18px;
+    left: 3px; top: 3px;
+    background: var(--text2);
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+  .toggle input:checked + .slider { background: var(--accent); }
+  .toggle input:checked + .slider::before {
+    transform: translateX(20px);
+    background: #fff;
+  }
+
+  /* Calc button */
+  .calc-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #5a4bd1);
+    border: none;
+    border-radius: var(--radius);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    margin-top: 8px;
+  }
+  .calc-btn:hover { opacity: 0.9; }
+  .calc-btn:active { transform: scale(0.99); }
+
+  /* Results */
+  #results { display: none; }
+  #results.visible { display: block; }
+
+  .result-main {
+    text-align: center;
+    padding: 32px 24px;
+    background: linear-gradient(135deg, rgba(108,92,231,0.1), rgba(0,184,148,0.1));
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+  }
+  .result-main .label { color: var(--text2); font-size: 14px; margin-bottom: 4px; }
+  .result-main .amount {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--green);
+    margin-bottom: 4px;
+  }
+  .result-main .sub { color: var(--text3); font-size: 13px; }
+
+  /* Steps */
+  .step {
+    padding: 14px 16px;
+    border-left: 3px solid var(--border);
+    margin-bottom: 8px;
+    margin-left: 8px;
+    font-size: 14px;
+  }
+  .step .step-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .step .step-value { color: var(--text2); }
+  .step.highlight { border-left-color: var(--accent); background: rgba(108,92,231,0.05); border-radius: 0 8px 8px 0; }
+  .step.warning { border-left-color: var(--orange); background: var(--orange-bg); border-radius: 0 8px 8px 0; }
+  .step.danger { border-left-color: var(--red); background: var(--red-bg); border-radius: 0 8px 8px 0; }
+  .step.success { border-left-color: var(--green); background: var(--green-bg); border-radius: 0 8px 8px 0; }
+
+  /* Badge */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-orange { background: var(--orange-bg); color: var(--orange); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-accent { background: rgba(108,92,231,0.15); color: var(--accent-light); }
+
+  /* Info block */
+  .info-block {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+  .info-block strong { color: var(--text); }
+
+  /* Purchase number input */
+  .purchase-input-wrap {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .purchase-input-wrap input {
+    flex: 1;
+    padding-right: 14px;
+  }
+  .fetch-btn {
+    padding: 12px 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .fetch-btn:hover { border-color: var(--accent); color: var(--text); }
+
+  /* Responsive */
+  @media (max-width: 500px) {
+    .row { flex-direction: column; gap: 0; }
+    .result-main .amount { font-size: 28px; }
+  }
+
+  /* Table in results */
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin-top: 12px;
+  }
+  .result-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-table td:first-child { color: var(--text2); }
+  .result-table td:last-child { text-align: right; font-weight: 600; }
+  .result-table tr:last-child td { border-bottom: none; }
+
+  .guarantee-section { margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Калькулятор ОИК</h1>
+  <p>Обеспечение исполнения контракта по 44-ФЗ и 223-ФЗ</p>
+</header>
+
+<!-- STEP 0: Purchase number + API -->
+<div class="card">
+  <div class="card-title"><span class="num">0</span> Номер закупки <span class="badge badge-green">DaMIA API</span></div>
+  <div class="purchase-input-wrap">
+    <input type="text" id="purchaseNumber" placeholder="Реестровый номер извещения">
+    <button class="fetch-btn" onclick="fetchPurchase()" id="fetchBtn">Найти</button>
+  </div>
+  <div id="fetchStatus" style="font-size:13px; color:var(--text3);"></div>
+
+  <!-- API key (collapsible) -->
+  <div style="margin-top:12px;">
+    <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="toggleApiKey()">
+      <span style="font-size:13px; color:var(--text3);" id="apiKeyToggle">&#9654; API-ключ DaMIA</span>
+      <span id="apiKeyStatus" style="font-size:11px;"></span>
+    </div>
+    <div id="apiKeyBlock" style="display:none; margin-top:8px;">
+      <div class="field">
+        <div class="input-wrap">
+          <input type="password" id="apiKey" placeholder="Вставьте ключ DaMIA" style="padding-right:80px; font-size:14px;">
+          <button class="fetch-btn" style="position:absolute; right:4px; padding:6px 12px; font-size:12px;" onclick="saveApiKey()">Сохранить</button>
+        </div>
+      </div>
+      <div style="font-size:12px; color:var(--text3); margin-top:6px;">
+        Ключ хранится только в вашем браузере (localStorage). <a href="https://damia.ru/apizakupki" target="_blank" style="color:var(--accent-light);">Получить ключ</a> (100 запросов бесплатно)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 1: Law selection -->
+<div class="card">
+  <div class="card-title"><span class="num">1</span> Закон</div>
+  <div class="law-selector">
+    <button class="law-btn active" data-law="44" onclick="selectLaw(44)">
+      44-ФЗ
+      <small>Госзакупки</small>
+    </button>
+    <button class="law-btn" data-law="223" onclick="selectLaw(223)">
+      223-ФЗ
+      <small>Корпоративные</small>
+    </button>
+  </div>
+</div>
+
+<!-- STEP 2: Main params -->
+<div class="card">
+  <div class="card-title"><span class="num">2</span> Параметры закупки</div>
+
+  <div class="field">
+    <label>НМЦК <span class="hint">(начальная максимальная цена контракта)</span></label>
+    <div class="input-wrap">
+      <input type="text" id="nmck" placeholder="10 000 000" oninput="formatMoney(this); autoCalc()">
+      <span class="suffix">&nbsp;</span>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label>Размер ОИК из документации</label>
+      <div class="input-wrap">
+        <input type="number" id="oikPercent" placeholder="10" step="0.1" min="0" max="100" oninput="autoCalc()">
+        <span class="suffix">%</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Размер аванса</label>
+      <div class="input-wrap">
+        <input type="number" id="advancePercent" placeholder="0" step="0.1" min="0" max="100" value="0" oninput="autoCalc()">
+        <span class="suffix">%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 3: Your offer -->
+<div class="card">
+  <div class="card-title"><span class="num">3</span> Ваше ценовое предложение</div>
+  <div class="field">
+    <label>Цена, которую планируете предложить</label>
+    <div class="input-wrap">
+      <input type="text" id="offerPrice" placeholder="7 500 000" oninput="formatMoney(this); autoCalc()">
+      <span class="suffix">&nbsp;</span>
+    </div>
+  </div>
+  <div id="reductionInfo" style="font-size:13px; margin-top:8px; color:var(--text3);"></div>
+</div>
+
+<!-- STEP 4: Additional conditions -->
+<div class="card">
+  <div class="card-title"><span class="num">4</span> Дополнительные условия</div>
+
+  <div class="toggle-row">
+    <div class="toggle-label">
+      Закупка для СМП / СОНО
+      <small>Субъекты малого предпринимательства</small>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="isSmp" onchange="toggleSmpOptions(); autoCalc()">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div id="smpOptions" style="display:none;">
+    <div class="toggle-row">
+      <div class="toggle-label">
+        Есть 3+ исполненных контракта за 3 года
+        <small id="smpHint">Сумма контрактов >= НМЦК. Освобождает от ОИК (44-ФЗ)</small>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="hasContracts" onchange="autoCalc()">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="toggle-row" id="treasuryRow">
+    <div class="toggle-label">
+      Казначейское сопровождение аванса
+      <small>При авансе > 30% — ОИК может быть уменьшен</small>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="hasTreasury" onchange="autoCalc()">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="toggle-row" id="guaranteeRow">
+    <div class="toggle-label">
+      Обеспечение гарантийных обязательств
+      <small>Устанавливается в документации (0.5-10% от НМЦК)</small>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="hasGuarantee" onchange="toggleGuarantee(); autoCalc()">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div id="guaranteeOptions" style="display:none;">
+    <div class="field" style="padding: 12px 0 0;">
+      <label>Размер обеспечения гарантийных обязательств</label>
+      <div class="input-wrap">
+        <input type="number" id="guaranteePercent" placeholder="5" step="0.1" min="0" max="10" oninput="autoCalc()">
+        <span class="suffix">%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Calculate -->
+<button class="calc-btn" onclick="calculate()">Рассчитать ОИК</button>
+
+<!-- Results -->
+<div id="results">
+  <div style="height:24px;"></div>
+
+  <div class="result-main" id="resultMain">
+    <div class="label">Сумма обеспечения исполнения контракта</div>
+    <div class="amount" id="resultAmount">0 &#8381;</div>
+    <div class="sub" id="resultSub"></div>
+  </div>
+
+  <!-- Antidumping alert -->
+  <div id="antidumpingAlert" class="card" style="display:none; border-color: var(--orange);">
+    <div class="card-title" style="color: var(--orange);">&#9888; Антидемпинговые меры (ст. 37 44-ФЗ)</div>
+    <div id="antidumpingContent"></div>
+  </div>
+
+  <!-- Calculation steps -->
+  <div class="card" id="stepsCard">
+    <div class="card-title">Расчёт пошагово</div>
+    <div id="steps"></div>
+  </div>
+
+  <!-- Summary table -->
+  <div class="card">
+    <div class="card-title">Итого к оплате / оформлению</div>
+    <table class="result-table" id="summaryTable"></table>
+  </div>
+
+  <!-- Guarantee section -->
+  <div class="card guarantee-section" id="guaranteeResult" style="display:none;">
+    <div class="card-title">Обеспечение гарантийных обязательств</div>
+    <div id="guaranteeContent"></div>
+  </div>
+
+  <!-- Report button -->
+  <button class="calc-btn" style="background: linear-gradient(135deg, #00b894, #00a381); margin-top:8px;" onclick="downloadReport()">Скачать отчёт</button>
+</div>
+
+</div>
+
+<script>
+let currentLaw = 44;
+let lastReport = null; // stores report data for download
+
+function selectLaw(law) {
+  currentLaw = law;
+  document.querySelectorAll('.law-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.law === law);
+  });
+  // Show/hide 44-FZ specific options
+  const is44 = law === 44;
+  document.getElementById('treasuryRow').style.display = is44 ? 'flex' : 'none';
+  document.getElementById('guaranteeRow').style.display = is44 ? 'flex' : 'none';
+  if (!is44) {
+    document.getElementById('hasGuarantee').checked = false;
+    document.getElementById('guaranteeOptions').style.display = 'none';
+  }
+  // Update SMP hint
+  document.getElementById('smpHint').textContent = is44
+    ? 'Сумма контрактов >= НМЦК. Освобождает от ОИК (44-ФЗ)'
+    : 'Для СМП размер ОИК не более 5% от НМЦК (223-ФЗ)';
+  autoCalc();
+}
+
+function toggleSmpOptions() {
+  const show = document.getElementById('isSmp').checked;
+  document.getElementById('smpOptions').style.display = show ? 'block' : 'none';
+  if (!show) document.getElementById('hasContracts').checked = false;
+}
+
+function toggleGuarantee() {
+  const show = document.getElementById('hasGuarantee').checked;
+  document.getElementById('guaranteeOptions').style.display = show ? 'block' : 'none';
+}
+
+function parseMoney(str) {
+  if (!str) return 0;
+  return parseFloat(String(str).replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+}
+
+function formatMoney(input) {
+  let v = input.value.replace(/[^\d]/g, '');
+  if (!v) { input.value = ''; return; }
+  input.value = Number(v).toLocaleString('ru-RU');
+}
+
+function fmt(n) {
+  return Math.round(n).toLocaleString('ru-RU') + ' \u20BD';
+}
+
+function fmtPct(n) {
+  return n % 1 === 0 ? n + '%' : n.toFixed(1) + '%';
+}
+
+function autoCalc() {
+  // Update reduction info
+  const nmck = parseMoney(document.getElementById('nmck').value);
+  const offer = parseMoney(document.getElementById('offerPrice').value);
+  const el = document.getElementById('reductionInfo');
+  if (nmck > 0 && offer > 0) {
+    const reduction = ((nmck - offer) / nmck * 100);
+    if (reduction >= 25) {
+      el.innerHTML = `<span style="color:var(--orange)">&#9888; Снижение: ${reduction.toFixed(1)}% &mdash; сработает антидемпинг!</span>`;
+    } else if (reduction >= 20) {
+      el.innerHTML = `<span style="color:var(--text2)">Снижение: ${reduction.toFixed(1)}% (до антидемпинга осталось ${(25 - reduction).toFixed(1)}%)</span>`;
+    } else if (reduction > 0) {
+      el.innerHTML = `<span style="color:var(--text3)">Снижение: ${reduction.toFixed(1)}%</span>`;
+    } else {
+      el.innerHTML = '';
+    }
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function toggleApiKey() {
+  const block = document.getElementById('apiKeyBlock');
+  const toggle = document.getElementById('apiKeyToggle');
+  if (block.style.display === 'none') {
+    block.style.display = 'block';
+    toggle.innerHTML = '&#9660; API-ключ DaMIA';
+  } else {
+    block.style.display = 'none';
+    toggle.innerHTML = '&#9654; API-ключ DaMIA';
+  }
+}
+
+function saveApiKey() {
+  const key = document.getElementById('apiKey').value.trim();
+  if (!key) return;
+  localStorage.setItem('damia_api_key', key);
+  updateApiKeyStatus();
+}
+
+function getApiKey() {
+  return localStorage.getItem('damia_api_key') || '';
+}
+
+function updateApiKeyStatus() {
+  const el = document.getElementById('apiKeyStatus');
+  const key = getApiKey();
+  if (key) {
+    const masked = '***' + key.slice(-8);
+    el.innerHTML = `<span class="badge badge-green">Ключ: ${masked}</span>`;
+  } else {
+    el.innerHTML = '<span class="badge badge-orange">не задан</span>';
+  }
+}
+
+// Init on load
+document.addEventListener('DOMContentLoaded', () => {
+  updateApiKeyStatus();
+  const saved = getApiKey();
+  if (saved) document.getElementById('apiKey').value = saved;
+});
+
+async function fetchPurchase() {
+  const num = document.getElementById('purchaseNumber').value.trim();
+  const statusEl = document.getElementById('fetchStatus');
+  const btn = document.getElementById('fetchBtn');
+
+  if (!num) {
+    statusEl.innerHTML = '<span style="color:var(--red)">Введите номер закупки</span>';
+    return;
+  }
+
+  const key = getApiKey();
+  if (!key) {
+    statusEl.innerHTML = '<span style="color:var(--orange)">Укажите API-ключ DaMIA (раскройте блок ниже)</span>';
+    document.getElementById('apiKeyBlock').style.display = 'block';
+    document.getElementById('apiKeyToggle').innerHTML = '&#9660; API-ключ DaMIA';
+    return;
+  }
+
+  // Loading state
+  btn.textContent = '...';
+  btn.disabled = true;
+  statusEl.innerHTML = '<span style="color:var(--text2)">Загрузка данных из ЕИС...</span>';
+
+  try {
+    const url = `https://api.damia.ru/zakupki/zakupka?regn=${encodeURIComponent(num)}&actual=1&key=${encodeURIComponent(key)}`;
+    const resp = await fetch(url);
+
+    if (!resp.ok) {
+      if (resp.status === 403) throw new Error('Неверный API-ключ');
+      if (resp.status === 404) throw new Error('Закупка не найдена');
+      if (resp.status === 429) throw new Error('Превышен лимит запросов');
+      throw new Error(`Ошибка ${resp.status}`);
+    }
+
+    const data = await resp.json();
+
+    // Response key is the regNumber
+    const purchase = data[num] || data[Object.keys(data)[0]];
+    if (!purchase) throw new Error('Закупка не найдена в ответе');
+
+    // Fill form fields
+    fillFromApi(purchase, num, statusEl);
+
+  } catch (err) {
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      // CORS or network error
+      statusEl.innerHTML = `<span style="color:var(--orange)">CORS-блокировка. Попробуйте через прокси или заполните вручную.</span>`;
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--red)">${err.message}</span>`;
+    }
+  } finally {
+    btn.textContent = 'Найти';
+    btn.disabled = false;
+  }
+}
+
+function fillFromApi(p, regNum, statusEl) {
+  const filled = [];
+
+  // Law
+  if (p.ФЗ) {
+    selectLaw(p.ФЗ);
+    filled.push(`${p.ФЗ}-ФЗ`);
+  }
+
+  // NMCK
+  if (p.НачЦена && p.НачЦена.Сумма) {
+    const nmckVal = p.НачЦена.Сумма;
+    document.getElementById('nmck').value = Math.round(nmckVal).toLocaleString('ru-RU');
+    filled.push(`НМЦК: ${fmt(nmckVal)}`);
+  }
+
+  // OIK (contract security)
+  if (p.ОбеспИсп && p.ОбеспИсп.Доля) {
+    const oikPct = Math.round(p.ОбеспИсп.Доля * 10000) / 100; // 0.05 → 5
+    document.getElementById('oikPercent').value = oikPct;
+    filled.push(`ОИК: ${oikPct}%`);
+  }
+
+  // Advance
+  if (p.АвансПроцент != null && p.АвансПроцент > 0) {
+    document.getElementById('advancePercent').value = p.АвансПроцент;
+    filled.push(`Аванс: ${p.АвансПроцент}%`);
+  }
+
+  // SMP
+  if (p.СМПиСОНО === true) {
+    document.getElementById('isSmp').checked = true;
+    toggleSmpOptions();
+    filled.push('СМП');
+  } else {
+    document.getElementById('isSmp').checked = false;
+    toggleSmpOptions();
+  }
+
+  // Guarantee
+  if (currentLaw === 44 && p.ОбеспГарант && p.ОбеспГарант.Доля > 0) {
+    document.getElementById('hasGuarantee').checked = true;
+    toggleGuarantee();
+    const guarPct = Math.round(p.ОбеспГарант.Доля * 10000) / 100;
+    document.getElementById('guaranteePercent').value = guarPct;
+    filled.push(`Гарантия: ${guarPct}%`);
+  }
+
+  // Purchase name for context
+  const name = (p.Продукт && p.Продукт.Название) ? p.Продукт.Название : '';
+  const customer = (p.Заказчик && p.Заказчик[0]) ? p.Заказчик[0].НаимСокр : '';
+
+  let html = `<span style="color:var(--green)">&#10003; Данные загружены: ${filled.join(', ')}</span>`;
+  if (name) html += `<br><span style="color:var(--text2)">${name}</span>`;
+  if (customer) html += `<br><span style="color:var(--text3)">${customer}</span>`;
+  statusEl.innerHTML = html;
+
+  autoCalc();
+}
+
+function calculate() {
+  const nmck = parseMoney(document.getElementById('nmck').value);
+  const oikPct = parseFloat(document.getElementById('oikPercent').value) || 0;
+  const advPct = parseFloat(document.getElementById('advancePercent').value) || 0;
+  const offer = parseMoney(document.getElementById('offerPrice').value);
+  const isSmp = document.getElementById('isSmp').checked;
+  const hasContracts = document.getElementById('hasContracts').checked;
+  const hasTreasury = document.getElementById('hasTreasury').checked;
+  const hasGuarantee = document.getElementById('hasGuarantee').checked;
+  const guaranteePct = parseFloat(document.getElementById('guaranteePercent').value) || 0;
+
+  if (nmck <= 0) {
+    alert('Укажите НМЦК');
+    return;
+  }
+  if (oikPct <= 0) {
+    alert('Укажите размер ОИК из документации');
+    return;
+  }
+
+  const steps = [];
+  let finalOik = 0;
+  let antidumping = false;
+  let antidumpingContent = '';
+  let reductionPct = 0;
+
+  if (offer > 0) {
+    reductionPct = (nmck - offer) / nmck * 100;
+  }
+
+  if (currentLaw === 44) {
+    finalOik = calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, hasTreasury, steps);
+
+    // Antidumping check
+    if (reductionPct >= 25) {
+      antidumping = true;
+      antidumpingContent = buildAntidumpingContent(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, finalOik);
+    }
+  } else {
+    finalOik = calc223(nmck, oikPct, advPct, offer, isSmp, steps);
+  }
+
+  // Render results
+  document.getElementById('results').classList.add('visible');
+  document.getElementById('resultAmount').textContent = fmt(finalOik);
+
+  const baseOik = nmck * oikPct / 100;
+  if (finalOik !== baseOik) {
+    document.getElementById('resultSub').textContent =
+      `Базовый расчёт: ${fmt(baseOik)} | Итоговый: ${fmt(finalOik)}`;
+  } else {
+    document.getElementById('resultSub').textContent = `${fmtPct(oikPct)} от НМЦК ${fmt(nmck)}`;
+  }
+
+  // Steps
+  document.getElementById('steps').innerHTML = steps.map(s =>
+    `<div class="step ${s.cls || ''}">`
+    + `<div class="step-title">${s.title}</div>`
+    + `<div class="step-value">${s.value}</div>`
+    + `</div>`
+  ).join('');
+
+  // Antidumping
+  const adAlert = document.getElementById('antidumpingAlert');
+  if (antidumping) {
+    adAlert.style.display = 'block';
+    document.getElementById('antidumpingContent').innerHTML = antidumpingContent;
+  } else {
+    adAlert.style.display = 'none';
+  }
+
+  // Summary table
+  const rows = [];
+  rows.push(['Обеспечение исполнения контракта', fmt(finalOik)]);
+  if (currentLaw === 44 && hasGuarantee && guaranteePct > 0) {
+    const guar = nmck * guaranteePct / 100;
+    rows.push(['Обеспечение гарантийных обязательств', fmt(guar)]);
+    rows.push(['<strong>ИТОГО</strong>', `<strong>${fmt(finalOik + guar)}</strong>`]);
+  }
+  document.getElementById('summaryTable').innerHTML = rows.map(r =>
+    `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`
+  ).join('');
+
+  // Guarantee
+  const guarResult = document.getElementById('guaranteeResult');
+  if (currentLaw === 44 && hasGuarantee && guaranteePct > 0) {
+    const guar = nmck * guaranteePct / 100;
+    guarResult.style.display = 'block';
+    document.getElementById('guaranteeContent').innerHTML =
+      `<div class="step success">`
+      + `<div class="step-title">Размер: ${fmtPct(guaranteePct)} от НМЦК</div>`
+      + `<div class="step-value">${fmt(nmck)} &times; ${fmtPct(guaranteePct)} = ${fmt(guar)}</div>`
+      + `</div>`
+      + `<div class="info-block">Обеспечение гарантийных обязательств вносится до подписания акта приёмки. Способы: денежные средства или банковская гарантия.</div>`;
+  } else {
+    guarResult.style.display = 'none';
+  }
+
+  // Save report data
+  lastReport = {
+    law: currentLaw,
+    nmck, oikPct, advPct, offer, isSmp, hasContracts,
+    hasTreasury: currentLaw === 44 ? hasTreasury : false,
+    hasGuarantee: currentLaw === 44 ? hasGuarantee : false,
+    guaranteePct,
+    reductionPct,
+    finalOik,
+    steps,
+    antidumping
+  };
+
+  // Scroll
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+
+function downloadReport() {
+  if (!lastReport) { alert('Сначала выполните расчёт'); return; }
+  const r = lastReport;
+  const date = new Date().toLocaleDateString('ru-RU');
+  const time = new Date().toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'});
+  const line = '─'.repeat(60);
+  const dline = '═'.repeat(60);
+
+  let txt = '';
+  txt += dline + '\n';
+  txt += '  РАСЧЁТ ОБЕСПЕЧЕНИЯ ИСПОЛНЕНИЯ КОНТРАКТА\n';
+  txt += `  ${r.law}-ФЗ | ${date} ${time}\n`;
+  txt += dline + '\n\n';
+
+  // Input params
+  txt += '  ИСХОДНЫЕ ДАННЫЕ\n';
+  txt += line + '\n';
+  txt += `  Закон:                     ${r.law}-ФЗ\n`;
+  txt += `  НМЦК:                      ${fmt(r.nmck)}\n`;
+  txt += `  Размер ОИК (документация): ${fmtPct(r.oikPct)}\n`;
+  if (r.offer > 0) {
+    txt += `  Ценовое предложение:       ${fmt(r.offer)}\n`;
+    txt += `  Снижение от НМЦК:          ${r.reductionPct.toFixed(1)}%\n`;
+  }
+  if (r.advPct > 0) {
+    const advBase = r.offer > 0 ? r.offer : r.nmck;
+    txt += `  Аванс:                     ${fmtPct(r.advPct)} = ${fmt(advBase * r.advPct / 100)}\n`;
+  }
+  txt += `  Закупка для СМП:           ${r.isSmp ? 'Да' : 'Нет'}\n`;
+  if (r.isSmp) {
+    txt += `  3+ исполн. контрактов:     ${r.hasContracts ? 'Да' : 'Нет'}\n`;
+  }
+  if (r.law === 44) {
+    if (r.advPct > 30) {
+      txt += `  Казначейское сопр.:        ${r.hasTreasury ? 'Да' : 'Нет'}\n`;
+    }
+    if (r.hasGuarantee) {
+      txt += `  Гарантийные обязат.:       ${fmtPct(r.guaranteePct)}\n`;
+    }
+  }
+  txt += '\n';
+
+  // Calculation chain
+  txt += '  ЦЕПОЧКА РАСЧЁТА\n';
+  txt += line + '\n';
+  r.steps.forEach((s, i) => {
+    const icon = s.cls === 'danger' ? '⚠️' :
+                 s.cls === 'warning' ? '⚡' :
+                 s.cls === 'success' ? '✅' :
+                 s.cls === 'highlight' ? '📌' : '  ';
+    // strip HTML tags
+    const title = s.title.replace(/<[^>]+>/g, '').replace(/&#\d+;/g, m => {
+      const code = parseInt(m.replace(/\D/g,''));
+      return String.fromCharCode(code);
+    }).replace(/&times;/g,'×').replace(/&mdash;/g,'—').replace(/&rarr;/g,'→');
+    const value = s.value.replace(/<[^>]+>/g, '').replace(/&#\d+;/g, m => {
+      const code = parseInt(m.replace(/\D/g,''));
+      return String.fromCharCode(code);
+    }).replace(/&times;/g,'×').replace(/&mdash;/g,'—').replace(/&rarr;/g,'→');
+
+    txt += `\n  ${icon} Шаг ${i + 1}: ${title}\n`;
+    txt += `     ${value}\n`;
+  });
+  txt += '\n';
+
+  // Result
+  txt += dline + '\n';
+  txt += `  ИТОГО: ОБЕСПЕЧЕНИЕ ИСПОЛНЕНИЯ КОНТРАКТА\n`;
+  txt += `  ${fmt(r.finalOik)}\n`;
+
+  if (r.law === 44 && r.hasGuarantee && r.guaranteePct > 0) {
+    const guar = r.nmck * r.guaranteePct / 100;
+    txt += `\n  Обеспечение гарантийных обязательств: ${fmt(guar)}\n`;
+    txt += `  ОБЩАЯ СУММА ОБЕСПЕЧЕНИЙ: ${fmt(r.finalOik + guar)}\n`;
+  }
+  txt += dline + '\n';
+
+  // Antidumping warning
+  if (r.antidumping) {
+    txt += '\n  ⚠️ ВНИМАНИЕ: ПРИМЕНЯЮТСЯ АНТИДЕМПИНГОВЫЕ МЕРЫ (ст. 37 44-ФЗ)\n';
+    txt += `  Снижение цены: ${r.reductionPct.toFixed(1)}% (порог: 25%)\n`;
+    const threshold = r.nmck * 0.75;
+    txt += `  Пороговая цена без антидемпинга: ${fmt(threshold)}\n`;
+    if (r.nmck > 15_000_000) {
+      txt += '  НМЦК > 15 млн: требуется подтверждение добросовестности\n';
+    }
+    txt += '\n';
+  }
+
+  // SMP note
+  if (r.isSmp && r.hasContracts && r.law === 44) {
+    txt += '\n  ✅ Как СМП с 3+ исполненными контрактами, вы можете\n';
+    txt += '     предоставить справку вместо денежного обеспечения.\n\n';
+  }
+
+  // Disclaimer
+  txt += line + '\n';
+  txt += '  Расчёт носит информационный характер.\n';
+  txt += '  Точные условия определяются документацией закупки.\n';
+  txt += line + '\n';
+
+  // Download
+  const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const purchNum = document.getElementById('purchaseNumber').value.trim();
+  const filename = purchNum
+    ? `ОИК_${purchNum}_${date.replace(/\./g,'-')}.txt`
+    : `ОИК_расчёт_${date.replace(/\./g,'-')}.txt`;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
+function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, hasTreasury, steps) {
+  // Determine base: for SMP — from contract price (offer), for others — from NMCK
+  const hasOffer = offer > 0;
+  const calcBase = (isSmp && hasOffer) ? offer : nmck;
+  const calcBaseLabel = (isSmp && hasOffer) ? 'цены контракта' : 'НМЦК';
+
+  // Step 0: SMP base explanation
+  if (isSmp && hasOffer) {
+    steps.push({
+      title: 'Закупка для СМП: база расчёта — цена контракта',
+      value: `По ч. 6 ст. 96 44-ФЗ для СМП обеспечение рассчитывается от цены контракта (${fmt(offer)}), а не от НМЦК (${fmt(nmck)})`,
+      cls: 'highlight'
+    });
+  } else if (isSmp && !hasOffer) {
+    steps.push({
+      title: 'Закупка для СМП',
+      value: 'Для точного расчёта укажите цену предложения &mdash; ОИК для СМП считается от цены контракта, а не от НМЦК. Пока считаем от НМЦК.',
+      cls: 'warning'
+    });
+  }
+
+  // Step 1: Base OIK
+  let baseOik = calcBase * oikPct / 100;
+  steps.push({
+    title: `Базовый размер ОИК: ${fmtPct(oikPct)} от ${calcBaseLabel}`,
+    value: `${fmt(calcBase)} &times; ${fmtPct(oikPct)} = ${fmt(baseOik)}`,
+    cls: isSmp ? '' : 'highlight'
+  });
+
+  let oik = baseOik;
+
+  // Step 2: NMCK > 50 million check (always from NMCK)
+  if (nmck > 50_000_000) {
+    const minOik50 = nmck * 0.1;
+    steps.push({
+      title: 'НМЦК > 50 млн &#8381;',
+      value: `Размер ОИК не менее 10% от НМЦК. Минимум: ${fmt(minOik50)}`,
+      cls: oik < minOik50 ? 'warning' : ''
+    });
+    if (oik < minOik50) {
+      oik = minOik50;
+    }
+  }
+
+  // Step 3: Antidumping FIRST (st. 37) — applies to base OIK, before advance comparison
+  const advBase = hasOffer ? offer : nmck;
+  const advBaseLabel = hasOffer ? 'цены контракта' : 'НМЦК (цена не указана)';
+  const advAmount = advPct > 0 ? advBase * advPct / 100 : 0;
+
+  if (reductionPct >= 25 && hasOffer) {
+    const oikBeforeAD = oik;
+    const increased = oik * 1.5;
+    const minOikAD = nmck * 0.1;
+
+    steps.push({
+      title: `&#9888; Антидемпинг! Снижение цены: ${reductionPct.toFixed(1)}% (>= 25%)`,
+      value: `Базовый ОИК увеличивается в 1,5 раза: ${fmt(oikBeforeAD)} &times; 1,5 = ${fmt(increased)}`,
+      cls: 'danger'
+    });
+
+    oik = increased;
+
+    // Minimum 10% of NMCK for antidumping
+    if (oik < minOikAD) {
+      steps.push({
+        title: 'Минимальный ОИК при антидемпинге',
+        value: `Не менее 10% от НМЦК: ${fmt(minOikAD)}`,
+        cls: 'warning'
+      });
+      oik = minOikAD;
+    }
+
+    // NMCK <= 15 million — increased OIK only
+    // NMCK > 15 million — increased OIK + good faith confirmation
+    if (nmck <= 15_000_000) {
+      steps.push({
+        title: 'НМЦК <= 15 млн &#8381;',
+        value: 'Достаточно увеличенного обеспечения. Подтверждение добросовестности не требуется.',
+        cls: ''
+      });
+    } else {
+      steps.push({
+        title: 'НМЦК > 15 млн &#8381;',
+        value: 'Помимо увеличенного ОИК, потребуется подтверждение добросовестности (3 исполненных контракта за 3 года без неустоек) ИЛИ увеличенное обеспечение.',
+        cls: 'warning'
+      });
+    }
+  } else if (hasOffer && reductionPct > 0) {
+    steps.push({
+      title: `Снижение цены: ${reductionPct.toFixed(1)}%`,
+      value: reductionPct >= 20
+        ? `Антидемпинг не применяется (порог 25%). Осталось: ${(25 - reductionPct).toFixed(1)}%`
+        : 'Антидемпинговые меры не применяются',
+      cls: ''
+    });
+  }
+
+  // Step 4: Advance check AFTER antidumping — compare OIK (possibly x1.5) with advance
+  if (advPct > 0) {
+    if (advPct > 30 && !hasTreasury) {
+      if (oik < advAmount) {
+        steps.push({
+          title: `Аванс ${fmtPct(advPct)} > 30% (без казначейского сопровождения)`,
+          value: `Аванс: ${fmtPct(advPct)} от ${advBaseLabel} = ${fmt(advAmount)}. ОИК (${fmt(oik)}) меньше аванса &rarr; ОИК = ${fmt(advAmount)}`,
+          cls: 'warning'
+        });
+        oik = advAmount;
+      } else {
+        steps.push({
+          title: `Аванс ${fmtPct(advPct)} > 30% (без казначейского сопровождения)`,
+          value: `Аванс: ${fmt(advAmount)}. ОИК (${fmt(oik)}) уже больше аванса &mdash; не влияет.`,
+          cls: ''
+        });
+      }
+    } else if (advPct > 30 && hasTreasury) {
+      steps.push({
+        title: `Аванс ${fmtPct(advPct)} > 30% (казначейское сопровождение)`,
+        value: `Аванс: ${fmt(advAmount)}. Казначейское сопровождение позволяет не увеличивать ОИК до размера аванса.`,
+        cls: 'success'
+      });
+    } else {
+      steps.push({
+        title: `Аванс ${fmtPct(advPct)} (<= 30%)`,
+        value: `Аванс: ${fmtPct(advPct)} от ${advBaseLabel} = ${fmt(advAmount)}. Не влияет на ОИК.`,
+        cls: ''
+      });
+    }
+  }
+
+  // Step 5: SMP exemption
+  if (isSmp && hasContracts) {
+    steps.push({
+      title: 'Освобождение для СМП (ч. 8.1 ст. 96)',
+      value: `Есть 3+ исполненных контракта. Можно не вносить ОИК (предоставить справку вместо обеспечения).`,
+      cls: 'success'
+    });
+    steps.push({
+      title: 'Если решите внести обеспечение',
+      value: `Размер составит: ${fmt(oik)}`,
+      cls: ''
+    });
+  } else if (isSmp && !hasContracts) {
+    steps.push({
+      title: 'СМП без освобождения',
+      value: `Нет 3 исполненных контрактов &mdash; ОИК обязателен: ${fmt(oik)}`,
+      cls: ''
+    });
+  }
+
+  // Step 6: Comparison SMP vs non-SMP (informational)
+  if (isSmp && hasOffer && offer < nmck) {
+    const oikFromNmck = nmck * oikPct / 100;
+    const savings = oikFromNmck - (calcBase * oikPct / 100);
+    if (savings > 0) {
+      steps.push({
+        title: 'Экономия СМП на базе расчёта',
+        value: `Если бы от НМЦК: ${fmt(oikFromNmck)}. От цены контракта: ${fmt(calcBase * oikPct / 100)}. Экономия: ${fmt(savings)}`,
+        cls: 'success'
+      });
+    }
+  } else if (!isSmp && hasOffer && offer < nmck) {
+    steps.push({
+      title: 'Справочно: расчёт от цены предложения',
+      value: `${fmt(offer)} &times; ${fmtPct(oikPct)} = ${fmt(offer * oikPct / 100)} (не применяется — вы не СМП, ОИК от НМЦК)`,
+      cls: ''
+    });
+  }
+
+  steps.push({
+    title: 'Итоговый размер ОИК',
+    value: fmt(oik),
+    cls: 'success'
+  });
+
+  return oik;
+}
+
+
+function calc223(nmck, oikPct, advPct, offer, isSmp, steps) {
+  const hasOffer = offer > 0;
+  const contractPrice = hasOffer ? offer : nmck;
+  const priceLabel = hasOffer ? 'цены контракта' : 'НМЦК';
+
+  let baseOik = nmck * oikPct / 100;
+  steps.push({
+    title: `Размер ОИК из документации: ${fmtPct(oikPct)} от НМЦК`,
+    value: `${fmt(nmck)} &times; ${fmtPct(oikPct)} = ${fmt(baseOik)}`,
+    cls: 'highlight'
+  });
+
+  let oik = baseOik;
+
+  if (isSmp) {
+    const maxSmp = nmck * 0.05;
+    if (advPct > 0) {
+      const advAmount = contractPrice * advPct / 100;
+      steps.push({
+        title: 'Закупка для СМП + аванс',
+        value: `ОИК для СМП = размеру аванса: ${fmtPct(advPct)} от ${priceLabel} = ${fmt(advAmount)}`,
+        cls: 'warning'
+      });
+      oik = advAmount;
+    } else if (oik > maxSmp) {
+      steps.push({
+        title: 'Ограничение для СМП (ч. 29 ст. 3.4)',
+        value: `Максимальный ОИК для СМП: 5% от НМЦК = ${fmt(maxSmp)}`,
+        cls: 'warning'
+      });
+      oik = maxSmp;
+    } else {
+      steps.push({
+        title: 'Закупка для СМП',
+        value: `ОИК ${fmtPct(oikPct)} <= 5% &mdash; ограничение не применяется`,
+        cls: 'success'
+      });
+    }
+  }
+
+  if (advPct > 0 && !isSmp) {
+    const advAmount = contractPrice * advPct / 100;
+    steps.push({
+      title: `Аванс ${fmtPct(advPct)} от ${priceLabel}`,
+      value: `Размер аванса: ${fmt(advAmount)}. Порядок определяется Положением о закупках заказчика.`,
+      cls: ''
+    });
+  }
+
+  steps.push({
+    title: 'Итоговый размер ОИК',
+    value: fmt(oik),
+    cls: 'success'
+  });
+
+  steps.push({
+    title: 'Обратите внимание (223-ФЗ)',
+    value: 'Конкретные условия ОИК определяются Положением о закупках заказчика. Антидемпинговые меры по 223-ФЗ не предусмотрены на уровне закона, но могут быть в Положении.',
+    cls: ''
+  });
+
+  return oik;
+}
+
+
+function buildAntidumpingContent(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, finalOik) {
+  const baseOik = nmck * oikPct / 100;
+  const increasedOik = baseOik * 1.5;
+
+  let html = '<div style="font-size:14px; line-height:1.7;">';
+
+  html += `<p><strong>Снижение цены:</strong> ${reductionPct.toFixed(1)}% (порог: 25%)</p>`;
+  html += `<p><strong>Ваше предложение:</strong> ${fmt(offer)} при НМЦК ${fmt(nmck)}</p>`;
+  html += '<hr style="border-color:var(--border); margin:12px 0;">';
+
+  html += '<p><strong>Что это значит для вас:</strong></p>';
+  html += '<ul style="padding-left:20px; margin:8px 0;">';
+  html += `<li>Базовый ОИК ${fmt(baseOik)} увеличивается в <strong>1,5 раза</strong> до ${fmt(increasedOik)}</li>`;
+
+  if (nmck > 15_000_000) {
+    html += '<li style="color:var(--orange)">НМЦК > 15 млн: необходимо подтверждение добросовестности '
+      + '(3 контракта за 3 года без пени и штрафов, сумма >= НМЦК) <strong>ИЛИ</strong> увеличенное обеспечение</li>';
+  } else {
+    html += '<li>НМЦК <= 15 млн: достаточно увеличенного обеспечения, подтверждение добросовестности не требуется</li>';
+  }
+
+  if (isSmp && hasContracts) {
+    html += '<li style="color:var(--green)">Как СМП с 3+ контрактами, вы можете предоставить справку об исполненных контрактах вместо увеличенного обеспечения</li>';
+  }
+
+  html += '</ul>';
+
+  // Threshold price
+  const thresholdPrice = nmck * 0.75;
+  html += `<div class="info-block" style="margin-top:12px;">`;
+  html += `<strong>Пороговая цена без антидемпинга:</strong> ${fmt(thresholdPrice)} (75% от НМЦК)<br>`;
+  html += `Если предложите цену выше ${fmt(thresholdPrice)}, антидемпинг не сработает.`;
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+</script>
+</body>
+</html>
