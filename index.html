@@ -317,7 +317,6 @@
   .result-table td:last-child { text-align: right; font-weight: 600; }
   .result-table tr:last-child td { border-bottom: none; }
 
-  .guarantee-section { margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -461,37 +460,6 @@
     </label>
   </div>
 
-  <div class="toggle-row" id="treasuryRow">
-    <div class="toggle-label">
-      Казначейское сопровождение аванса
-      <small>При авансе > 30% — ОИК может быть уменьшен</small>
-    </div>
-    <label class="toggle">
-      <input type="checkbox" id="hasTreasury" onchange="autoCalc()">
-      <span class="slider"></span>
-    </label>
-  </div>
-
-  <div class="toggle-row" id="guaranteeRow">
-    <div class="toggle-label">
-      Обеспечение гарантийных обязательств
-      <small>Устанавливается в документации (0.5-10% от НМЦК)</small>
-    </div>
-    <label class="toggle">
-      <input type="checkbox" id="hasGuarantee" onchange="toggleGuarantee(); autoCalc()">
-      <span class="slider"></span>
-    </label>
-  </div>
-
-  <div id="guaranteeOptions" style="display:none;">
-    <div class="field" style="padding: 12px 0 0;">
-      <label>Размер обеспечения гарантийных обязательств</label>
-      <div class="input-wrap">
-        <input type="number" id="guaranteePercent" placeholder="5" step="0.1" min="0" max="10" oninput="autoCalc()">
-        <span class="suffix">%</span>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- Calculate -->
@@ -525,11 +493,6 @@
     <table class="result-table" id="summaryTable"></table>
   </div>
 
-  <!-- Guarantee section -->
-  <div class="card guarantee-section" id="guaranteeResult" style="display:none;">
-    <div class="card-title">Обеспечение гарантийных обязательств</div>
-    <div id="guaranteeContent"></div>
-  </div>
 
   <!-- Report button -->
   <button class="calc-btn" style="background: linear-gradient(135deg, #00b894, #00a381); margin-top:8px;" onclick="downloadReport()">Скачать отчёт</button>
@@ -548,21 +511,11 @@ function selectLaw(law) {
   });
   // Show/hide 44-FZ specific options
   const is44 = law === 44;
-  document.getElementById('treasuryRow').style.display = is44 ? 'flex' : 'none';
-  document.getElementById('guaranteeRow').style.display = is44 ? 'flex' : 'none';
-  if (!is44) {
-    document.getElementById('hasGuarantee').checked = false;
-    document.getElementById('guaranteeOptions').style.display = 'none';
-  }
   autoCalc();
 }
 
 // toggleSmpOptions removed — 3+ contracts toggle is always visible
 
-function toggleGuarantee() {
-  const show = document.getElementById('hasGuarantee').checked;
-  document.getElementById('guaranteeOptions').style.display = show ? 'block' : 'none';
-}
 
 function parseMoney(str) {
   if (!str) return 0;
@@ -782,14 +735,6 @@ function fillFromApi(p, regNum, statusEl) {
     filled.push(`Цена (${priceSource}): ${fmt(offerPrice)}`);
   }
 
-  // Guarantee
-  if (currentLaw === 44 && p.ОбеспГарант && p.ОбеспГарант.Доля > 0) {
-    document.getElementById('hasGuarantee').checked = true;
-    toggleGuarantee();
-    const guarPct = Math.round(p.ОбеспГарант.Доля * 10000) / 100;
-    document.getElementById('guaranteePercent').value = guarPct;
-    filled.push(`Гарантия: ${guarPct}%`);
-  }
 
   // Auto-detect undefined volume + fill unit price sum
   const nmckVal = (p.НачЦена && p.НачЦена.Сумма) ? p.НачЦена.Сумма : 0;
@@ -837,9 +782,6 @@ function calculate() {
   const isSmp = document.getElementById('isSmp').checked;
   const hasContracts = document.getElementById('hasContracts').checked;
   const isUndefinedVolume = document.getElementById('isUndefinedVolume').checked;
-  const hasTreasury = document.getElementById('hasTreasury').checked;
-  const hasGuarantee = document.getElementById('hasGuarantee').checked;
-  const guaranteePct = parseFloat(document.getElementById('guaranteePercent').value) || 0;
 
   if (nmck <= 0) {
     alert('Укажите НМЦК');
@@ -865,7 +807,7 @@ function calculate() {
   }
 
   if (currentLaw === 44) {
-    finalOik = calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, hasTreasury, isUndefinedVolume, steps);
+    finalOik = calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, isUndefinedVolume, steps);
 
     // Antidumping check (skip for undefined volume without unit sum)
     if (reductionPct >= 25 && !(isUndefinedVolume && unitSum <= 0)) {
@@ -908,37 +850,14 @@ function calculate() {
   // Summary table
   const rows = [];
   rows.push(['Обеспечение исполнения контракта', fmt(finalOik)]);
-  if (currentLaw === 44 && hasGuarantee && guaranteePct > 0) {
-    const guar = nmck * guaranteePct / 100;
-    rows.push(['Обеспечение гарантийных обязательств', fmt(guar)]);
-    rows.push(['<strong>ИТОГО</strong>', `<strong>${fmt(finalOik + guar)}</strong>`]);
-  }
   document.getElementById('summaryTable').innerHTML = rows.map(r =>
     `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`
   ).join('');
-
-  // Guarantee
-  const guarResult = document.getElementById('guaranteeResult');
-  if (currentLaw === 44 && hasGuarantee && guaranteePct > 0) {
-    const guar = nmck * guaranteePct / 100;
-    guarResult.style.display = 'block';
-    document.getElementById('guaranteeContent').innerHTML =
-      `<div class="step success">`
-      + `<div class="step-title">Размер: ${fmtPct(guaranteePct)} от НМЦК</div>`
-      + `<div class="step-value">${fmt(nmck)} &times; ${fmtPct(guaranteePct)} = ${fmt(guar)}</div>`
-      + `</div>`
-      + `<div class="info-block">Обеспечение гарантийных обязательств вносится до подписания акта приёмки. Способы: денежные средства или банковская гарантия.</div>`;
-  } else {
-    guarResult.style.display = 'none';
-  }
 
   // Save report data
   lastReport = {
     law: currentLaw,
     nmck, oikPct, advPct, offer, isSmp, hasContracts,
-    hasTreasury: currentLaw === 44 ? hasTreasury : false,
-    hasGuarantee: currentLaw === 44 ? hasGuarantee : false,
-    guaranteePct,
     reductionPct,
     finalOik,
     steps,
@@ -983,12 +902,6 @@ function downloadReport() {
     txt += `  3+ исполн. контрактов:     ${r.hasContracts ? 'Да' : 'Нет'}\n`;
   }
   if (r.law === 44) {
-    if (r.advPct > 30) {
-      txt += `  Казначейское сопр.:        ${r.hasTreasury ? 'Да' : 'Нет'}\n`;
-    }
-    if (r.hasGuarantee) {
-      txt += `  Гарантийные обязат.:       ${fmtPct(r.guaranteePct)}\n`;
-    }
   }
   txt += '\n';
 
@@ -1020,11 +933,6 @@ function downloadReport() {
   txt += `  ИТОГО: ОБЕСПЕЧЕНИЕ ИСПОЛНЕНИЯ КОНТРАКТА\n`;
   txt += `  ${fmt(r.finalOik)}\n`;
 
-  if (r.law === 44 && r.hasGuarantee && r.guaranteePct > 0) {
-    const guar = r.nmck * r.guaranteePct / 100;
-    txt += `\n  Обеспечение гарантийных обязательств: ${fmt(guar)}\n`;
-    txt += `  ОБЩАЯ СУММА ОБЕСПЕЧЕНИЙ: ${fmt(r.finalOik + guar)}\n`;
-  }
   txt += dline + '\n';
 
   // Antidumping warning
@@ -1066,7 +974,7 @@ function downloadReport() {
 }
 
 
-function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, hasTreasury, isUndefinedVolume, steps) {
+function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, isUndefinedVolume, steps) {
   // Determine base: for SMP — from contract price (offer), for others — from NMCK
   const hasOffer = offer > 0;
   const calcBase = (isSmp && hasOffer) ? offer : nmck;
@@ -1184,29 +1092,23 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
     });
   }
 
-  // Step 4: Advance check AFTER antidumping — compare OIK (possibly x1.5) with advance
+  // Step 4: Advance check — OIK not less than advance if advance > 30%
   if (advPct > 0) {
-    if (advPct > 30 && !hasTreasury) {
+    if (advPct > 30) {
       if (oik < advAmount) {
         steps.push({
-          title: `Аванс ${fmtPct(advPct)} > 30% (без казначейского сопровождения)`,
+          title: `Аванс ${fmtPct(advPct)} > 30%`,
           value: `Аванс: ${fmtPct(advPct)} от ${advBaseLabel} = ${fmt(advAmount)}. ОИК (${fmt(oik)}) меньше аванса &rarr; ОИК = ${fmt(advAmount)}`,
           cls: 'warning'
         });
         oik = advAmount;
       } else {
         steps.push({
-          title: `Аванс ${fmtPct(advPct)} > 30% (без казначейского сопровождения)`,
-          value: `Аванс: ${fmt(advAmount)}. ОИК (${fmt(oik)}) уже больше аванса &mdash; не влияет.`,
+          title: `Аванс ${fmtPct(advPct)} > 30%`,
+          value: `Аванс: ${fmt(advAmount)}. ОИК (${fmt(oik)}) уже больше аванса.`,
           cls: ''
         });
       }
-    } else if (advPct > 30 && hasTreasury) {
-      steps.push({
-        title: `Аванс ${fmtPct(advPct)} > 30% (казначейское сопровождение)`,
-        value: `Аванс: ${fmt(advAmount)}. Казначейское сопровождение позволяет не увеличивать ОИК до размера аванса.`,
-        cls: 'success'
-      });
     } else {
       steps.push({
         title: `Аванс ${fmtPct(advPct)} (<= 30%)`,
