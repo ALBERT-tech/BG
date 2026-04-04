@@ -425,22 +425,31 @@
       <small>Субъекты малого предпринимательства</small>
     </div>
     <label class="toggle">
-      <input type="checkbox" id="isSmp" onchange="toggleSmpOptions(); autoCalc()">
+      <input type="checkbox" id="isSmp" onchange="autoCalc()">
       <span class="slider"></span>
     </label>
   </div>
 
-  <div id="smpOptions" style="display:none;">
-    <div class="toggle-row">
-      <div class="toggle-label">
-        Есть 3+ исполненных контракта за 3 года
-        <small id="smpHint">Сумма контрактов >= НМЦК. Освобождает от ОИК (44-ФЗ)</small>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="hasContracts" onchange="autoCalc()">
-        <span class="slider"></span>
-      </label>
+  <div class="toggle-row">
+    <div class="toggle-label">
+      Есть 3+ исполненных контракта за 3 года
+      <small>СМП: освобождает от ОИК. Антидемпинг (НМЦК &le; 15 млн): снимает x1.5</small>
     </div>
+    <label class="toggle">
+      <input type="checkbox" id="hasContracts" onchange="autoCalc()">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="toggle-row">
+    <div class="toggle-label">
+      Закупка с неопределённым объёмом
+      <small>Торги за цену единицы. Антидемпинг не рассчитывается</small>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="isUndefinedVolume" onchange="autoCalc()">
+      <span class="slider"></span>
+    </label>
   </div>
 
   <div class="toggle-row" id="treasuryRow">
@@ -536,18 +545,10 @@ function selectLaw(law) {
     document.getElementById('hasGuarantee').checked = false;
     document.getElementById('guaranteeOptions').style.display = 'none';
   }
-  // Update SMP hint
-  document.getElementById('smpHint').textContent = is44
-    ? 'Сумма контрактов >= НМЦК. Освобождает от ОИК (44-ФЗ)'
-    : 'Для СМП размер ОИК не более 5% от НМЦК (223-ФЗ)';
   autoCalc();
 }
 
-function toggleSmpOptions() {
-  const show = document.getElementById('isSmp').checked;
-  document.getElementById('smpOptions').style.display = show ? 'block' : 'none';
-  if (!show) document.getElementById('hasContracts').checked = false;
-}
+// toggleSmpOptions removed — 3+ contracts toggle is always visible
 
 function toggleGuarantee() {
   const show = document.getElementById('hasGuarantee').checked;
@@ -730,37 +731,35 @@ function fillFromApi(p, regNum, statusEl) {
   // SMP — only trust explicit СМПиСОНО field from DaMIA
   const smp = p.СМПиСОНО === true || p.СМПиСОНО === 'Да' || p.СМПиСОНО === '1' || p.СМПиСОНО === 1;
   document.getElementById('isSmp').checked = smp;
-  toggleSmpOptions();
   if (smp) filled.push('СМП');
 
-  // Contract/winner price → offer field
-  let contractPrice = 0;
+  // Offer price: protocol bid first, contract as fallback
+  let offerPrice = 0;
   let priceSource = '';
-  // 1. From contracts
-  if (p.Контракты && typeof p.Контракты === 'object') {
-    const ckeys = Object.keys(p.Контракты);
-    if (ckeys.length > 0 && p.Контракты[ckeys[0]].Цена) {
-      contractPrice = p.Контракты[ckeys[0]].Цена.Сумма;
-      priceSource = 'контракт';
-    }
-  }
-  // 2. From protocol — only admitted bids (exclude rejected)
-  if (!contractPrice && p.Протокол && Array.isArray(p.Протокол.Заявки)) {
+  // 1. From protocol — winner/admitted bids (exclude rejected)
+  if (p.Протокол && Array.isArray(p.Протокол.Заявки)) {
     const rejected = /отклон|отказ|не\s*допущ/i;
     const admitted = p.Протокол.Заявки.filter(z => !rejected.test(z.Результат || '') && !rejected.test(z.Причина || ''));
-    // Winner first
     const winner = admitted.find(z => z.Результат === 'Победитель');
     if (winner && winner.Сумма) {
-      contractPrice = winner.Сумма;
+      offerPrice = winner.Сумма;
       priceSource = 'победитель';
     } else if (admitted.length > 0 && admitted[0].Сумма) {
-      contractPrice = admitted[0].Сумма;
+      offerPrice = admitted[0].Сумма;
       priceSource = 'допущенная заявка';
     }
   }
-  if (contractPrice > 0) {
-    document.getElementById('offerPrice').value = Math.round(contractPrice).toLocaleString('ru-RU');
-    filled.push(`Цена (${priceSource}): ${fmt(contractPrice)}`);
+  // 2. Fallback: contract price (only if no bid data)
+  if (!offerPrice && p.Контракты && typeof p.Контракты === 'object') {
+    const ckeys = Object.keys(p.Контракты);
+    if (ckeys.length > 0 && p.Контракты[ckeys[0]].Цена) {
+      offerPrice = p.Контракты[ckeys[0]].Цена.Сумма;
+      priceSource = 'контракт';
+    }
+  }
+  if (offerPrice > 0) {
+    document.getElementById('offerPrice').value = Math.round(offerPrice).toLocaleString('ru-RU');
+    filled.push(`Цена (${priceSource}): ${fmt(offerPrice)}`);
   }
 
   // Guarantee
@@ -770,6 +769,16 @@ function fillFromApi(p, regNum, statusEl) {
     const guarPct = Math.round(p.ОбеспГарант.Доля * 10000) / 100;
     document.getElementById('guaranteePercent').value = guarPct;
     filled.push(`Гарантия: ${guarPct}%`);
+  }
+
+  // Auto-detect undefined volume
+  const nmckVal = (p.НачЦена && p.НачЦена.Сумма) ? p.НачЦена.Сумма : 0;
+  if (nmckVal > 0 && p.Протокол && Array.isArray(p.Протокол.Заявки) && p.Протокол.Заявки.length > 0) {
+    const minBid = Math.min(...p.Протокол.Заявки.filter(z => z.Сумма > 0).map(z => z.Сумма));
+    if (minBid > 0 && minBid < nmckVal * 0.05) {
+      document.getElementById('isUndefinedVolume').checked = true;
+      filled.push('Неопр. объём (авто)');
+    }
   }
 
   // Purchase name for context
@@ -791,6 +800,7 @@ function calculate() {
   const offer = parseMoney(document.getElementById('offerPrice').value);
   const isSmp = document.getElementById('isSmp').checked;
   const hasContracts = document.getElementById('hasContracts').checked;
+  const isUndefinedVolume = document.getElementById('isUndefinedVolume').checked;
   const hasTreasury = document.getElementById('hasTreasury').checked;
   const hasGuarantee = document.getElementById('hasGuarantee').checked;
   const guaranteePct = parseFloat(document.getElementById('guaranteePercent').value) || 0;
@@ -815,7 +825,7 @@ function calculate() {
   }
 
   if (currentLaw === 44) {
-    finalOik = calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, hasTreasury, steps);
+    finalOik = calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, hasTreasury, isUndefinedVolume, steps);
 
     // Antidumping check
     if (reductionPct >= 25) {
@@ -1016,7 +1026,7 @@ function downloadReport() {
 }
 
 
-function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, hasTreasury, steps) {
+function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, hasTreasury, isUndefinedVolume, steps) {
   // Determine base: for SMP — from contract price (offer), for others — from NMCK
   const hasOffer = offer > 0;
   const calcBase = (isSmp && hasOffer) ? offer : nmck;
@@ -1060,48 +1070,70 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
     }
   }
 
-  // Step 3: Antidumping FIRST (st. 37) — applies to base OIK, before advance comparison
+  // Step 3: Antidumping (st. 37)
   const advBase = hasOffer ? offer : nmck;
   const advBaseLabel = hasOffer ? 'цены контракта' : 'НМЦК (цена не указана)';
   const advAmount = advPct > 0 ? advBase * advPct / 100 : 0;
 
-  if (reductionPct >= 25 && hasOffer) {
+  if (isUndefinedVolume && hasOffer && reductionPct >= 25) {
+    // Undefined volume — skip antidumping
+    steps.push({
+      title: 'Закупка с неопределённым объёмом',
+      value: `Торги за цену единицы. Снижение ${reductionPct.toFixed(1)}% от НМЦК не является демпингом &mdash; антидемпинговые меры не применяются.`,
+      cls: 'highlight'
+    });
+  } else if (reductionPct >= 25 && hasOffer && !isUndefinedVolume) {
     const oikBeforeAD = oik;
     const increased = oik * 1.5;
     const minOikAD = nmck * 0.1;
 
-    steps.push({
-      title: `&#9888; Антидемпинг! Снижение цены: ${reductionPct.toFixed(1)}% (>= 25%)`,
-      value: `Базовый ОИК увеличивается в 1,5 раза: ${fmt(oikBeforeAD)} &times; 1,5 = ${fmt(increased)}`,
-      cls: 'danger'
-    });
-
-    oik = increased;
-
-    // Minimum 10% of NMCK for antidumping
-    if (oik < minOikAD) {
+    // Check if contractor can use good faith confirmation
+    if (hasContracts && nmck <= 15_000_000) {
+      // НМЦК <= 15 млн + 3 contracts → no x1.5
       steps.push({
-        title: 'Минимальный ОИК при антидемпинге',
-        value: `Не менее 10% от НМЦК: ${fmt(minOikAD)}`,
-        cls: 'warning'
+        title: `&#9888; Антидемпинг: снижение ${reductionPct.toFixed(1)}% (>= 25%)`,
+        value: `Есть 3+ контракта + НМЦК &le; 15 млн &rarr; подтверждение добросовестности. ОИК не увеличивается.`,
+        cls: 'success'
       });
-      oik = minOikAD;
-    }
-
-    // NMCK <= 15 million — increased OIK only
-    // NMCK > 15 million — increased OIK + good faith confirmation
-    if (nmck <= 15_000_000) {
-      steps.push({
-        title: 'НМЦК <= 15 млн &#8381;',
-        value: 'Достаточно увеличенного обеспечения. Подтверждение добросовестности не требуется.',
-        cls: ''
-      });
+      // OIK stays as-is, no x1.5
     } else {
+      // x1.5 required
       steps.push({
-        title: 'НМЦК > 15 млн &#8381;',
-        value: 'Помимо увеличенного ОИК, потребуется подтверждение добросовестности (3 исполненных контракта за 3 года без неустоек) ИЛИ увеличенное обеспечение.',
-        cls: 'warning'
+        title: `&#9888; Антидемпинг! Снижение цены: ${reductionPct.toFixed(1)}% (>= 25%)`,
+        value: `Базовый ОИК увеличивается в 1,5 раза: ${fmt(oikBeforeAD)} &times; 1,5 = ${fmt(increased)}`,
+        cls: 'danger'
       });
+
+      oik = increased;
+
+      if (oik < minOikAD) {
+        steps.push({
+          title: 'Минимальный ОИК при антидемпинге',
+          value: `Не менее 10% от НМЦК: ${fmt(minOikAD)}`,
+          cls: 'warning'
+        });
+        oik = minOikAD;
+      }
+
+      if (hasContracts && nmck > 15_000_000) {
+        steps.push({
+          title: 'НМЦК > 15 млн + 3 контракта',
+          value: '3 контракта не освобождают от увеличенного обеспечения при НМЦК > 15 млн. x1.5 обязательно.',
+          cls: 'warning'
+        });
+      } else if (nmck <= 15_000_000) {
+        steps.push({
+          title: 'НМЦК &le; 15 млн &#8381;',
+          value: 'Можно предоставить 3 контракта вместо увеличенного обеспечения (включите флажок выше).',
+          cls: ''
+        });
+      } else {
+        steps.push({
+          title: 'НМЦК > 15 млн &#8381;',
+          value: 'Увеличенное обеспечение x1.5 обязательно.',
+          cls: 'warning'
+        });
+      }
     }
   } else if (hasOffer && reductionPct > 0) {
     steps.push({
