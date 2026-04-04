@@ -659,14 +659,35 @@ async function fetchPurchase() {
   statusEl.innerHTML = '<span style="color:var(--text2)">Загрузка данных из ЕИС...</span>';
 
   try {
-    const url = `https://api.damia.ru/zakupki/zakupka?regn=${encodeURIComponent(num)}&actual=1&key=${encodeURIComponent(key)}`;
-    const resp = await fetch(url);
+    const damiaUrl = `https://api.damia.ru/zakupki/zakupka?regn=${encodeURIComponent(num)}&actual=1&key=${encodeURIComponent(key)}`;
 
-    if (!resp.ok) {
-      if (resp.status === 403) throw new Error('Неверный API-ключ');
-      if (resp.status === 404) throw new Error('Закупка не найдена');
-      if (resp.status === 429) throw new Error('Превышен лимит запросов');
-      throw new Error(`Ошибка ${resp.status}`);
+    // CORS proxies (fallback chain)
+    const proxies = [
+      url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    ];
+
+    let resp = null;
+    let lastErr = null;
+
+    // Try direct first, then proxies
+    const attempts = [url => url, ...proxies];
+    for (const wrap of attempts) {
+      try {
+        resp = await fetch(wrap(damiaUrl), { signal: AbortSignal.timeout(10000) });
+        if (resp.ok) break;
+        resp = null;
+      } catch(e) {
+        lastErr = e;
+        resp = null;
+      }
+    }
+
+    if (!resp || !resp.ok) {
+      if (resp && resp.status === 403) throw new Error('Неверный API-ключ');
+      if (resp && resp.status === 404) throw new Error('Закупка не найдена');
+      if (resp && resp.status === 429) throw new Error('Превышен лимит запросов');
+      throw new Error(lastErr?.message || `Ошибка загрузки`);
     }
 
     const data = await resp.json();
