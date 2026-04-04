@@ -661,11 +661,12 @@ async function fetchPurchase() {
   try {
     const damiaUrl = `https://api.damia.ru/zakupki/zakupka?regn=${encodeURIComponent(num)}&actual=1&key=${encodeURIComponent(key)}`;
 
-    // CORS proxies — direct call blocked, go through proxy
+    // Own Vercel proxy first, public proxies as fallback
+    const proxyBase = 'https://damia-proxy.vercel.app';
     const proxies = [
+      `${proxyBase}/api/damia?regn=${encodeURIComponent(num)}&key=${encodeURIComponent(key)}`,
       `https://corsproxy.io/?${encodeURIComponent(damiaUrl)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(damiaUrl)}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(damiaUrl)}`,
     ];
 
     let resp = null;
