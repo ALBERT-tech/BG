@@ -661,45 +661,21 @@ async function fetchPurchase() {
   try {
     const damiaUrl = `https://api.damia.ru/zakupki/zakupka?regn=${encodeURIComponent(num)}&actual=1&key=${encodeURIComponent(key)}`;
 
-    // Own Vercel proxy first, public proxies as fallback
-    const proxyBase = 'https://damia-proxy.vercel.app';
-    const proxies = [
-      `${proxyBase}/api/damia?regn=${encodeURIComponent(num)}&key=${encodeURIComponent(key)}`,
-      `https://corsproxy.io/?${encodeURIComponent(damiaUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(damiaUrl)}`,
-    ];
+    const resp = await fetch(damiaUrl);
 
-    let resp = null;
-    let data = null;
-    let lastErr = null;
-
-    for (const proxyUrl of proxies) {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 12000);
-      try {
-        resp = await fetch(proxyUrl, { signal: ctrl.signal });
-        clearTimeout(timer);
-        if (resp.ok) {
-          const text = await resp.text();
-          try { data = JSON.parse(text); } catch(e) {
-            // allorigins may wrap in JSON object
-            try { data = JSON.parse(JSON.parse(text).contents); } catch(e2) { data = null; }
-          }
-          if (data) break;
-        }
-        resp = null;
-      } catch(e) {
-        clearTimeout(timer);
-        lastErr = e;
-        resp = null;
-      }
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      if (resp.status === 403 || text.includes('ключ')) throw new Error('Неверный API-ключ');
+      if (resp.status === 404) throw new Error('Закупка не найдена');
+      if (resp.status === 429) throw new Error('Превышен лимит запросов');
+      if (text.includes('ip') || text.includes('IP')) throw new Error('IP заблокирован в DaMIA. Разрешите его в личном кабинете.');
+      throw new Error(text || `Ошибка ${resp.status}`);
     }
 
-    if (!data) {
-      throw new Error(lastErr?.message?.includes('abort')
-        ? 'Таймаут — сервер не ответил'
-        : 'Не удалось загрузить данные. Проверьте номер и API-ключ.');
-    }
+    const data = await resp.json();
+
+    // DaMIA может вернуть строку с ошибкой
+    if (typeof data === 'string') throw new Error(data);
 
     // Response key is the regNumber
     const purchase = data[num] || data[Object.keys(data)[0]];
