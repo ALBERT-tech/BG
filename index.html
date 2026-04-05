@@ -1138,34 +1138,38 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
     });
   }
 
-  // Step 4: Advance check (only without treasury — treasury handled above)
+  // Step 4: Advance check — ОИК не менее аванса (без казначейского и без антидемпинга)
   if (advPct > 0 && !hasTreasury && !isAntidumping) {
-    if (advPct > 30) {
-      if (oik < advAmount) {
-        steps.push({
-          title: `Аванс ${fmtPct(advPct)} > 30%`,
-          value: `Аванс: ${fmtPct(advPct)} от ${advBaseLabel} = ${fmt(advAmount)}. ОИК (${fmt(oik)}) меньше аванса &rarr; ОИК = ${fmt(advAmount)}`,
-          cls: 'warning'
-        });
-        oik = advAmount;
-      } else {
-        steps.push({
-          title: `Аванс ${fmtPct(advPct)} > 30%`,
-          value: `Аванс: ${fmt(advAmount)}. ОИК (${fmt(oik)}) уже больше аванса.`,
-          cls: ''
-        });
-      }
+    if (oik < advAmount) {
+      steps.push({
+        title: `Аванс ${fmtPct(advPct)}`,
+        value: `Аванс: ${fmtPct(advPct)} от ${advBaseLabel} = ${fmt(advAmount)}. ОИК (${fmt(oik)}) меньше аванса &rarr; ОИК = ${fmt(advAmount)}`,
+        cls: 'warning'
+      });
+      oik = advAmount;
     } else {
       steps.push({
-        title: `Аванс ${fmtPct(advPct)} (<= 30%)`,
-        value: `Аванс: ${fmtPct(advPct)} от ${advBaseLabel} = ${fmt(advAmount)}. Не влияет на ОИК.`,
+        title: `Аванс ${fmtPct(advPct)}`,
+        value: `Аванс: ${fmt(advAmount)}. ОИК (${fmt(oik)}) уже больше аванса.`,
         cls: ''
       });
     }
   }
 
   // Step 5: SMP exemption
-  if (isSmp && hasContracts) {
+  if (isSmp && hasContracts && isAntidumping && nmck > 15_000_000) {
+    // п.17: СМП + 3к + антидемпинг + >15М — 3 контракта НЕ работают
+    const minOik10 = calcBase * 0.1;
+    steps.push({
+      title: 'СМП + 3 контракта + антидемпинг + НМЦК > 15 млн',
+      value: `3 контракта не освобождают при НМЦК > 15 млн и антидемпинге. ОИК увеличен в 1,5 раза, не менее 10% от цены контракта (${fmt(minOik10)}).`,
+      cls: 'warning'
+    });
+    if (oik < minOik10) {
+      oik = minOik10;
+    }
+  } else if (isSmp && hasContracts) {
+    // п.15, 16: СМП + 3к (без антидемпинга, или антидемпинг + ≤15М) — освобождение
     steps.push({
       title: 'Освобождение для СМП (ч. 8.1 ст. 96)',
       value: `Есть 3+ исполненных контракта. ОИК не требуется — предоставьте справку об исполненных контрактах.`,
