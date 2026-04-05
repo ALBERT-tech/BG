@@ -460,6 +460,17 @@
     </label>
   </div>
 
+  <div class="toggle-row">
+    <div class="toggle-label">
+      Казначейское сопровождение аванса
+      <small>При авансе > 30% — ОИК можно не увеличивать до размера аванса</small>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="hasTreasury" onchange="autoCalc()">
+      <span class="slider"></span>
+    </label>
+  </div>
+
 </div>
 
 <!-- Calculate -->
@@ -782,6 +793,7 @@ function calculate() {
   const isSmp = document.getElementById('isSmp').checked;
   const hasContracts = document.getElementById('hasContracts').checked;
   const isUndefinedVolume = document.getElementById('isUndefinedVolume').checked;
+  const hasTreasury = document.getElementById('hasTreasury').checked;
 
   if (nmck <= 0) {
     alert('Укажите НМЦК');
@@ -807,7 +819,7 @@ function calculate() {
   }
 
   if (currentLaw === 44) {
-    finalOik = calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, isUndefinedVolume, steps);
+    finalOik = calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, isUndefinedVolume, hasTreasury, steps);
 
     // Antidumping check (skip for undefined volume without unit sum)
     if (reductionPct >= 25 && !(isUndefinedVolume && unitSum <= 0)) {
@@ -974,7 +986,7 @@ function downloadReport() {
 }
 
 
-function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, isUndefinedVolume, steps) {
+function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, isUndefinedVolume, hasTreasury, steps) {
   // Determine base: for SMP — from contract price (offer), for others — from NMCK
   const hasOffer = offer > 0;
   const calcBase = (isSmp && hasOffer) ? offer : nmck;
@@ -1094,7 +1106,7 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
 
   // Step 4: Advance check — OIK not less than advance if advance > 30%
   if (advPct > 0) {
-    if (advPct > 30) {
+    if (advPct > 30 && !hasTreasury) {
       if (oik < advAmount) {
         steps.push({
           title: `Аванс ${fmtPct(advPct)} > 30%`,
@@ -1109,6 +1121,12 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
           cls: ''
         });
       }
+    } else if (advPct > 30 && hasTreasury) {
+      steps.push({
+        title: `Аванс ${fmtPct(advPct)} > 30% (казначейское сопровождение)`,
+        value: `Аванс: ${fmt(advAmount)}. Казначейское сопровождение — ОИК не увеличивается до размера аванса.`,
+        cls: 'success'
+      });
     } else {
       steps.push({
         title: `Аванс ${fmtPct(advPct)} (<= 30%)`,
