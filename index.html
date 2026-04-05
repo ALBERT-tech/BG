@@ -1007,12 +1007,28 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
     });
   }
 
-  // Step 1: Base OIK
-  let baseOik = calcBase * oikPct / 100;
+  // Step 1: Base OIK (при казначейском сопровождении — от базы минус аванс)
+  let oikBase = calcBase;
+  let oikBaseLabel = calcBaseLabel;
+  const advBase = hasOffer ? offer : nmck;
+  const advBaseLabel = hasOffer ? 'цены контракта' : 'НМЦК (цена не указана)';
+  const advAmount = advPct > 0 ? advBase * advPct / 100 : 0;
+
+  if (hasTreasury && advPct > 0) {
+    oikBase = calcBase - advAmount;
+    oikBaseLabel = `(${calcBaseLabel} - аванс)`;
+    steps.push({
+      title: 'Казначейское сопровождение аванса',
+      value: `База расчёта ОИК: ${fmt(calcBase)} &minus; ${fmt(advAmount)} (аванс ${fmtPct(advPct)}) = ${fmt(oikBase)}`,
+      cls: 'highlight'
+    });
+  }
+
+  let baseOik = oikBase * oikPct / 100;
   steps.push({
-    title: `Базовый размер ОИК: ${fmtPct(oikPct)} от ${calcBaseLabel}`,
-    value: `${fmt(calcBase)} &times; ${fmtPct(oikPct)} = ${fmt(baseOik)}`,
-    cls: isSmp ? '' : 'highlight'
+    title: `Базовый размер ОИК: ${fmtPct(oikPct)} от ${oikBaseLabel}`,
+    value: `${fmt(oikBase)} &times; ${fmtPct(oikPct)} = ${fmt(baseOik)}`,
+    cls: (isSmp || hasTreasury) ? '' : 'highlight'
   });
 
   let oik = baseOik;
@@ -1031,9 +1047,6 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
   }
 
   // Step 3: Antidumping (st. 37)
-  const advBase = hasOffer ? offer : nmck;
-  const advBaseLabel = hasOffer ? 'цены контракта' : 'НМЦК (цена не указана)';
-  const advAmount = advPct > 0 ? advBase * advPct / 100 : 0;
 
   if (isUndefinedVolume) {
     steps.push({
@@ -1121,13 +1134,7 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
           cls: ''
         });
       }
-    } else if (advPct > 30 && hasTreasury) {
-      steps.push({
-        title: `Аванс ${fmtPct(advPct)} > 30% (казначейское сопровождение)`,
-        value: `Аванс: ${fmt(advAmount)}. Казначейское сопровождение — ОИК не увеличивается до размера аванса.`,
-        cls: 'success'
-      });
-    } else {
+    } else if (advPct <= 30 && !hasTreasury) {
       steps.push({
         title: `Аванс ${fmtPct(advPct)} (<= 30%)`,
         value: `Аванс: ${fmtPct(advPct)} от ${advBaseLabel} = ${fmt(advAmount)}. Не влияет на ОИК.`,
