@@ -1007,20 +1007,31 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
     });
   }
 
-  // Step 1: Base OIK (при казначейском сопровождении — от базы минус аванс)
-  let oikBase = calcBase;
-  let oikBaseLabel = calcBaseLabel;
+  // Advance calculations
   const advBase = hasOffer ? offer : nmck;
   const advBaseLabel = hasOffer ? 'цены контракта' : 'НМЦК (цена не указана)';
   const advAmount = advPct > 0 ? advBase * advPct / 100 : 0;
+  const isAntidumping = reductionPct >= 25 && hasOffer;
 
-  if (hasTreasury && advPct > 0) {
+  // Step 1: Base OIK
+  // При казначейском сопровождении и БЕЗ антидемпинга: база = (цена - аванс)
+  // При антидемпинге: казначейское не применяется, аванс не выплачивается
+  let oikBase = calcBase;
+  let oikBaseLabel = calcBaseLabel;
+
+  if (hasTreasury && advPct > 0 && !isAntidumping) {
     oikBase = calcBase - advAmount;
-    oikBaseLabel = `(${calcBaseLabel} - аванс)`;
+    oikBaseLabel = `(${calcBaseLabel} &minus; аванс)`;
     steps.push({
       title: 'Казначейское сопровождение аванса',
       value: `База расчёта ОИК: ${fmt(calcBase)} &minus; ${fmt(advAmount)} (аванс ${fmtPct(advPct)}) = ${fmt(oikBase)}`,
       cls: 'highlight'
+    });
+  } else if (hasTreasury && advPct > 0 && isAntidumping) {
+    steps.push({
+      title: 'Казначейское сопровождение + антидемпинг',
+      value: `При снижении &ge; 25% аванс не выплачивается. ОИК рассчитывается от ${calcBaseLabel} без вычета аванса и увеличивается в 1,5 раза.`,
+      cls: 'warning'
     });
   }
 
@@ -1028,10 +1039,20 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
   steps.push({
     title: `Базовый размер ОИК: ${fmtPct(oikPct)} от ${oikBaseLabel}`,
     value: `${fmt(oikBase)} &times; ${fmtPct(oikPct)} = ${fmt(baseOik)}`,
-    cls: (isSmp || hasTreasury) ? '' : 'highlight'
+    cls: (isSmp || (hasTreasury && !isAntidumping)) ? '' : 'highlight'
   });
 
   let oik = baseOik;
+
+  // Казначейское: ОИК не менее аванса (если нет антидемпинга)
+  if (hasTreasury && advPct > 0 && !isAntidumping && oik < advAmount) {
+    steps.push({
+      title: 'ОИК не менее суммы аванса',
+      value: `ОИК (${fmt(oik)}) меньше аванса (${fmt(advAmount)}) &rarr; ОИК = ${fmt(advAmount)}`,
+      cls: 'warning'
+    });
+    oik = advAmount;
+  }
 
   // Step 2: NMCK > 50 million check (always from NMCK)
   if (nmck > 50_000_000) {
@@ -1056,7 +1077,7 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
     });
   }
 
-  if (reductionPct >= 25 && hasOffer) {
+  if (isAntidumping) {
     const oikBeforeAD = oik;
     const increased = oik * 1.5;
     const minOikAD = nmck * 0.1;
@@ -1117,9 +1138,9 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
     });
   }
 
-  // Step 4: Advance check — OIK not less than advance if advance > 30%
-  if (advPct > 0) {
-    if (advPct > 30 && !hasTreasury) {
+  // Step 4: Advance check (only without treasury — treasury handled above)
+  if (advPct > 0 && !hasTreasury && !isAntidumping) {
+    if (advPct > 30) {
       if (oik < advAmount) {
         steps.push({
           title: `Аванс ${fmtPct(advPct)} > 30%`,
@@ -1134,7 +1155,7 @@ function calc44(nmck, oikPct, advPct, offer, reductionPct, isSmp, hasContracts, 
           cls: ''
         });
       }
-    } else if (advPct <= 30 && !hasTreasury) {
+    } else {
       steps.push({
         title: `Аванс ${fmtPct(advPct)} (<= 30%)`,
         value: `Аванс: ${fmtPct(advPct)} от ${advBaseLabel} = ${fmt(advAmount)}. Не влияет на ОИК.`,
